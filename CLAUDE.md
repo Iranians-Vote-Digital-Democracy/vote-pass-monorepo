@@ -23,36 +23,38 @@ A secure digital voting platform using **passport NFC chips** (TD3 documents) fo
 
 ```
 ~/vote-pass/
-├── mobile/                        # React Native/Expo mobile app
-│   ├── modules/
-│   │   ├── passport-reader/       # Native passport NFC (iOS: NFCPassportReader, Android: jmrtd)
-│   │   ├── rapidsnark-wrp/        # Groth16 native module
-│   │   ├── witnesscalculator/     # 40+ Circom witness calculators (incl voteSMT)
-│   │   └── noir/                  # Noir prover
-│   ├── src/
-│   │   ├── api/modules/registration/variants/
-│   │   │   ├── circom-epassport.ts    # Groth16 passport registration
-│   │   │   └── noir-epassport.ts      # Noir passport registration
-│   │   ├── store/modules/identity/    # Identity management
-│   │   ├── utils/e-document/
-│   │   │   └── e-document.ts          # EPassport data model
-│   │   └── utils/circuits/
-│   │       └── registration/          # Circuit wrappers
-│   └── package.json
+├── app-android-biometric-passport-zk/   # Native Android app (Kotlin)
+│   └── app/src/main/java/org/iranUnchained/
+│       ├── base/BaseConfig.kt           # Environment configs (endpoints, chain)
+│       ├── feature/                     # UI features (passport scan, voting)
+│       ├── logic/                       # Business logic (ZK proofs, NFC)
+│       └── contracts/                   # Contract ABIs & wrappers
 │
-├── platform/                      # Backend services & contracts
+├── app-ios-biometric-passport-zk/       # Native iOS app (Swift)
+│   └── IranUnchained/
+│       ├── Code/                        # Swift source
+│       └── SupportingFiles/Configs/     # Build configs (Local.xcconfig)
+│
+├── platform/                            # Backend services & contracts
+│   ├── docker-compose.yaml              # Production Docker orchestration
+│   ├── docker-compose-local.yaml        # Local dev Docker orchestration
+│   ├── configs/                         # Service configs
+│   │   ├── nginx.conf                   # API gateway (routes to services)
+│   │   ├── registration-relayer.yaml
+│   │   ├── proof-verification-relayer.yaml
+│   │   └── decentralized-auth-svc.yaml
 │   └── services/
-│       ├── passport-contracts/            # Registration infra (Registration2, StateKeeper, PoseidonSMT)
-│       ├── passport-voting-contracts/     # Voting contracts (BaseVoting, BioPassportVoting, verifiers)
-│       ├── registration-relayer/          # Go: registration tx relay
-│       ├── proof-verification-relayer/    # Go: vote submission + proposals + state
-│       └── decentralized-auth-svc/        # Go: JWT auth via ZK proofs
+│       ├── passport-contracts/              # Registration infra (Registration2, StateKeeper, PoseidonSMT)
+│       ├── passport-voting-contracts/       # Voting contracts (BaseVoting, BioPassportVoting, verifiers)
+│       ├── registration-relayer/            # Go: registration tx relay
+│       ├── proof-verification-relayer/      # Go: vote submission + proposals + state
+│       └── decentralized-auth-svc/          # Go: JWT auth via ZK proofs
 │
 ├── docs/
-│   └── TESTING_GUIDE.md           # Testing philosophy & practices
-├── tasks.md                       # Current tasks in progress
-├── done.md                        # Completed tasks with commit hashes
-└── CLAUDE.md                      # This file
+│   └── TESTING_GUIDE.md             # Testing philosophy & practices
+├── tasks.md                          # Current tasks in progress
+├── done.md                           # Completed tasks with commit hashes
+└── CLAUDE.md                         # This file
 ```
 
 ---
@@ -68,7 +70,7 @@ A secure digital voting platform using **passport NFC chips** (TD3 documents) fo
 | `PoseidonSMT.sol` | Sparse Merkle Tree |
 | `BioPassportVoting.sol` | TD3 passport voting |
 | `BaseVoting.sol` | Abstract voting logic + citizenship whitelist |
-| `BioPassportVotingVerifier.sol` | Groth16 on-chain verifier |
+| `VotingVerifier.sol` | Groth16 on-chain verifier |
 
 ### Contract Entry Points
 
@@ -97,16 +99,20 @@ function execute(
 
 ## Tech Stack
 
-### Mobile App
-- **Framework**: React Native + Expo
-- **Language**: TypeScript
-- **Styling**: NativeWind (Tailwind CSS)
-- **Package Manager**: Yarn
-- **ZK Prover**: Groth16 via rapidsnark (primary), Noir (alternative)
-- **NFC**: react-native-nfc-manager + passport-reader native module
+### Android App
+- **Language**: Kotlin
+- **Build**: Gradle
+- **NFC**: jmrtd (passport NFC reading)
+- **ZK Prover**: Groth16 via rapidsnark, Noir
+
+### iOS App
+- **Language**: Swift
+- **Build**: Xcode
+- **NFC**: NFCPassportReader
+- **ZK Prover**: Groth16 via rapidsnark, Noir
 
 ### Platform
-- **Contracts**: Solidity (Hardhat)
+- **Contracts**: Solidity 0.8.28 (Hardhat)
 - **Backend**: Go services
 - **Infrastructure**: Docker, Nginx
 
@@ -114,15 +120,17 @@ function execute(
 
 ## Common Commands
 
-### Mobile App
+### Android App
 ```bash
-cd mobile
-yarn install              # Install dependencies
-yarn start                # Start Expo dev server
-yarn ios                  # Run on iOS device
-yarn android              # Run on Android device
-yarn lint                 # Run linter
-yarn test                 # Run tests
+cd app-android-biometric-passport-zk
+./gradlew assembleDebug   # Build debug APK
+./gradlew installDebug    # Install on connected device
+```
+
+### iOS App
+```bash
+cd app-ios-biometric-passport-zk
+# Open IranUnchained.xcodeproj in Xcode, build & run on device
 ```
 
 ### Platform Contracts
