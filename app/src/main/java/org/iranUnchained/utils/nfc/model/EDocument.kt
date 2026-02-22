@@ -13,5 +13,8 @@ data class EDocument (
     var isChipAuth: Boolean = false,
     var sod: String? = null,
     var dg1: String? = null,
-    var dg2Hash: String? = null
+    var dg1Hex: String? = null,
+    var dg2Hash: String? = null,
+    var digestAlgorithm: String? = null,
+    var docSigningCertPem: String? = null
 ) : Parcelable

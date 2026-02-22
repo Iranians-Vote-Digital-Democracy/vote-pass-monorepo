@@ -156,6 +156,9 @@ class NfcReaderTask(
             personDetails.issuerAuthority = mrzInfo.issuingState;
 
             eDocument.dg1 = encodedDg1File
+            eDocument.dg1Hex = dg1File.encoded.toHexString()
+            eDocument.digestAlgorithm = digestAlgorithm
+            eDocument.docSigningCertPem = pemFile
 
             if ("I" == mrzInfo.documentCode) {
                 docType = DocType.ID_CARD

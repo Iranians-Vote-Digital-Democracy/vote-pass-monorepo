@@ -13,8 +13,10 @@ import org.iranUnchained.databinding.FragmentResultDataPassportBinding
 import org.iranUnchained.logic.persistance.SecureSharedPrefs
 import org.iranUnchained.utils.Navigator
 import org.iranUnchained.utils.nfc.ImageUtil
+import org.iranUnchained.utils.PassportDataExporter
 import org.iranUnchained.utils.nfc.model.EDocument
 import org.iranUnchained.utils.withPersianDigits
+import android.widget.Toast
 
 class ResultDataPassportFragment : BaseFragment() {
 
@@ -55,7 +57,7 @@ class ResultDataPassportFragment : BaseFragment() {
     }
 
     private fun initButtons() {
-        clickHelper.addViews(binding.confirmButton)
+        clickHelper.addViews(binding.confirmButton, binding.exportTestDataButton)
         clickHelper.setOnClickListener {
             when (it.id) {
                 binding.confirmButton.id -> {
@@ -71,6 +73,14 @@ class ResultDataPassportFragment : BaseFragment() {
                     Navigator.from(this).openConfirmation(eDocumentData!!)
                     requireActivity().finish()
 
+                }
+                binding.exportTestDataButton.id -> {
+                    PassportDataExporter.exportPassportData(eDocumentData!!)
+                    Toast.makeText(
+                        requireContext(),
+                        "Passport data exported to logcat. Run extract-passport-data.sh to pull.",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             }
         }
