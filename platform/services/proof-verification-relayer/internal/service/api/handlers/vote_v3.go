@@ -169,10 +169,10 @@ func parseNoirCallData(data []byte) (NoirVoteCalldata, error) {
 		return config, fmt.Errorf("failed to parse noir ABI: %v", err)
 	}
 
-	// Use executeTD1Noir for TD1 documents (Iranian National ID cards)
-	method, ok := parsedABI.Methods["executeTD1Noir"]
+	// Use executeNoir for TD3 documents (passports)
+	method, ok := parsedABI.Methods["executeNoir"]
 	if !ok {
-		return config, fmt.Errorf("method 'executeTD1Noir' not found in noir ABI")
+		return config, fmt.Errorf("method 'executeNoir' not found in noir ABI")
 	}
 
 	decoded, err := method.Inputs.Unpack(data[4:])
