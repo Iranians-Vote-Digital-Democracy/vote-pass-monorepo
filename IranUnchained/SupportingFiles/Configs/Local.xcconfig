@@ -1,0 +1,25 @@
+//
+//  Local.xcconfig
+//  IranUnchained
+//
+//  Local development configuration pointing at Docker platform services
+//
+
+// Configuration settings file format documentation can be found at:
+// https://help.apple.com/xcode/#/dev745c5c974
+
+// MARK: General
+SLASH=/
+
+// MARK: Local Development (Docker platform services at localhost:8000)
+PRIVACY_POLICY_URL = "https:${SLASH}/www.iranians.vote/privacy-policy-verify-2024.html"
+TERMS_OF_USE_URL = "https:${SLASH}/www.iranians.vote/terms-of-use-verify-2024.html"
+PASSPORT_KYC_URL = "http:${SLASH}/localhost:8000"
+RARIMO_CORE_URL = "http:${SLASH}/localhost:8545"
+TARGET_CHAIN_RPC_URL = "http:${SLASH}/localhost:8545"
+ISSUER_URL = "http:${SLASH}/localhost:8000"
+REGISTRY_EVM_CONTRACT_ADDRESS = "0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1"
+PROPOSER_EVM_ADDRESS = "0x6212cb549De37c25071cF506aB7E115D140D9e42"
+REGISTRY_ENTRY_TYPE = "Simple Registration"
+PROOF_VERIFICATION_RELAYER_URL = "http:${SLASH}/localhost:8000"
+VOTING_CREDENTIAL_TYPE = "urn:uuid:f2c8db83-7e1b-493d-a65e-9939d643e79d"
