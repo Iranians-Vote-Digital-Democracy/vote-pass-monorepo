@@ -2,18 +2,18 @@
 pragma solidity 0.8.28;
 
 import {IPoseidonSMT} from "@rarimo/passport-contracts/interfaces/state/IPoseidonSMT.sol";
-import {PublicSignalsTD1Builder} from "@rarimo/passport-contracts/sdk/lib/PublicSignalsTD1Builder.sol";
+import {PublicSignalsBuilder} from "@rarimo/passport-contracts/sdk/lib/PublicSignalsBuilder.sol";
 
 import {BaseVoting} from "./BaseVoting.sol";
 
 import {ProposalsState} from "../state/ProposalsState.sol";
 
-contract IDCardVoting is BaseVoting {
-    using PublicSignalsTD1Builder for uint256;
+contract BioPassportVoting is BaseVoting {
+    using PublicSignalsBuilder for uint256;
 
     uint256 public constant IDENTITY_LIMIT = type(uint32).max;
 
-    function __IDCardVoting_init(
+    function __BioPassportVoting_init(
         address registrationSMT_,
         address proposalsState_,
         address votingVerifier_
@@ -44,7 +44,7 @@ contract IDCardVoting is BaseVoting {
         ProposalsState(proposalsState).vote(proposalId_, userData_.nullifier, vote_);
     }
 
-    function _buildPublicSignalsTD1(
+    function _buildPublicSignals(
         bytes32,
         uint256 currentDate_,
         bytes memory userPayload_
@@ -74,7 +74,7 @@ contract IDCardVoting is BaseVoting {
             identityCounterUpperBound = proposalRules_.identityCounterUpperBound;
         }
 
-        uint256 builder_ = PublicSignalsTD1Builder.newPublicSignalsBuilder(
+        uint256 builder_ = PublicSignalsBuilder.newPublicSignalsBuilder(
             proposalRules_.selector,
             userData_.nullifier
         );
@@ -93,17 +93,17 @@ contract IDCardVoting is BaseVoting {
         );
         builder_.withExpirationDateLowerboundAndUpperbound(
             proposalRules_.expirationDateLowerBound,
-            PublicSignalsTD1Builder.ZERO_DATE
+            PublicSignalsBuilder.ZERO_DATE
         );
 
         return builder_;
     }
 
-    function _buildPublicSignals(
+    function _buildPublicSignalsTD1(
         bytes32,
         uint256,
         bytes memory
     ) internal pure override returns (uint256) {
-        revert("TD3 voting is not supported.");
+        revert("TD1 voting is not supported.");
     }
 }
