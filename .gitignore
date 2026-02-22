@@ -25,6 +25,9 @@ Thumbs.db
 
 # Test data (contains real passport data — NEVER commit)
 testdata/
+
+# Extracted passport/proof data from device (contains real passport data — NEVER commit)
+extracted_data/
 platform/services/passport-voting-contracts/test/fixtures/*.json
 platform/services/passport-voting-contracts/test/fixtures/*.hex
 
