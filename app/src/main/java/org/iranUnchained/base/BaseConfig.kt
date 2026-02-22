@@ -1,7 +1,7 @@
 package org.iranUnchained.base
 
 
-//Main
+// Production (Rarimo L2 Mainnet)
 object BaseConfig {
     const val CREATE_IDENTITY_LINK =
         "https:///kyc.iran.freedomtool.org/integrations/identity-provider-service/v1/create-identity"
@@ -25,7 +25,7 @@ object BaseConfig {
     const val PRIVACY_POLICY_URL = "https://www.iranians.vote/privacy-policy.html"
 }
 
-//TestNet
+// Rarimo L2 Testnet
 object TestNet {
 
     const val CREATE_IDENTITY_LINK =
@@ -44,9 +44,32 @@ object TestNet {
 
     const val BLOCK_CHAIN_RPC_LINK = "https://rpc.qtestnet.org"
 
+    const val REGISTRATION_TYPE = "Simple Registration"
+
+    const val PRIVACY_POLICY_URL = "https://www.iranians.vote/privacy-policy.html"
+}
+
+// Local Development (Docker platform services)
+// Use 10.0.2.2 for Android emulator -> host machine, or your machine's IP for device
+object LocalDev {
+    private const val GATEWAY = "http://10.0.2.2:8000"
+
+    const val SEND_REGISTRATION_LINK =
+        "$GATEWAY/integrations/registration-relayer/v1/register"
+    const val VOTE_LINK =
+        "$GATEWAY/integrations/proof-verification-relayer/v3/vote"
+    const val PROPOSALS_LINK =
+        "$GATEWAY/integrations/proof-verification-relayer/v2/proposals"
+    const val AUTH_LINK =
+        "$GATEWAY/integrations/decentralized-auth-svc/v1/authorize"
+
+    // Contracts deployed on local Hardhat (update after deploy)
+    const val REGISTRATION_ADDRESS = "0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1"
+    const val PROPOSAL_ADDRESS = "0x6212cb549De37c25071cF506aB7E115D140D9e42"
+
+    const val BLOCK_CHAIN_RPC_LINK = "http://10.0.2.2:8545"
 
     const val REGISTRATION_TYPE = "Simple Registration"
 
     const val PRIVACY_POLICY_URL = "https://www.iranians.vote/privacy-policy.html"
-
 }
