@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+.yarn/cache/
+.yarn/unplugged/
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test data (contains real passport data — NEVER commit)
+testdata/
+platform/services/passport-voting-contracts/test/fixtures/*.json
+platform/services/passport-voting-contracts/test/fixtures/*.hex
+
+# Hardhat
+platform/services/passport-voting-contracts/artifacts/
+platform/services/passport-voting-contracts/cache/
+platform/services/passport-voting-contracts/generated-types/
+
+# Android
+*.apk
+*.aab
+*.keystore
+local.properties
+
+# iOS
+*.ipa
+Pods/
+
+# Logs
+logs/
+*.log
+
+# Claude
+.claude/
