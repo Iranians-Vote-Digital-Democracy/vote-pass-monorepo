@@ -15,7 +15,7 @@
 - `_buildPublicSignalsTD1()` reverts with "TD1 voting is not supported."
 - Deleted IDCardVoting.sol, NoirTD1Verifier_ID_Card_I.sol, deploy/id_i/
 - Created deploy/2_voting.migration.ts for BioPassportVoting + VotingVerifier
-- 11 comprehensive tests passing (Groth16, Noir, TD1 rejection, citizenship, double-vote, boundaries)
+- 11 initial tests passing (Groth16, Noir, TD1 rejection, citizenship, double-vote, boundaries)
 - Commit: `758481c`
 
 ### Phase 3: Adapt proof verification relayer for TD3
@@ -35,3 +35,13 @@
 - iOS: Added `Local.xcconfig` with localhost Docker service endpoints
 - Android commit: `0167863` (in app-android-biometric-passport-zk repo)
 - iOS commit: `a0034f6` (in app-ios-biometric-passport-zk repo)
+
+### Test Quality Rewrite (fix/comprehensive-tests)
+- Rewrote BioPassportVoting.test.ts per TESTING_GUIDE.md (Moloch testing philosophy)
+- 28 tests: DRY helpers, verification functions, full require coverage
+- Happy path (4): execute Groth16, executeNoir, event emission, multi-voter
+- Validation errors (10): TD1 reject x2, citizenship, voting whitelist, proposal timing x2, vote count, overflow, zero vote, double vote
+- Access control (2): non-whitelisted caller rejected, whitelisted caller succeeds
+- Boundary conditions (8): empty/single-entry whitelist, max choice multichoice, power-of-2 single-select, non-power-of-2 reject, MAX+1 reject, minimum choice, exact start time
+- Edge cases (4): single option, separate proposals, same nullifier different proposals, multichoice tally
+- Commit: `837a126`
