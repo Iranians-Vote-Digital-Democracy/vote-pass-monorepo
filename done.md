@@ -36,6 +36,19 @@
 - Android commit: `0167863` (in app-android-biometric-passport-zk repo)
 - iOS commit: `a0034f6` (in app-ios-biometric-passport-zk repo)
 
+### Passport Data Export & Real Proof Testing (feature/passport-data-export)
+- Added `extracted_data/` to .gitignore — commit: `7b33e96`
+- Android: added `dg1Hex`, `digestAlgorithm`, `docSigningCertPem` fields to EDocument
+- Android: store hex-encoded DG1, digest algorithm, and PEM cert in NfcReaderTask
+- Android: created `PassportDataExporter.kt` utility (exports passport + proof data to logcat with chunking)
+- Android: added "Export Test Data" button to ResultDataPassportFragment layout and wiring
+- Android: added debug-only proof export in VoteSubmissionService after Groth16 proof generation
+- Created `scripts/extract-passport-data.sh` to pull exported data from logcat — commit: `865ac4e`
+- Created `passport-data-loader.ts` test helper (loads JSON, converts proof to ProofPoints)
+- Created `BioPassportVoting.realproof.test.ts` (3 tests: verify real proof, reject tampered, full vote flow; skips gracefully without data)
+- Added `test:realproof` npm script — commit: `f3f88e3`
+- Note: Android app changes are on-disk only (app is a separate repo, not tracked in main git)
+
 ### Test Quality Rewrite (fix/comprehensive-tests)
 - Rewrote BioPassportVoting.test.ts per TESTING_GUIDE.md (Moloch testing philosophy)
 - 28 tests: DRY helpers, verification functions, full require coverage
