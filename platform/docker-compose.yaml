@@ -1,14 +1,14 @@
 version: '3.8'
 
-# Docker Compose for Rarimo - Voting & ID Registration
+# Docker Compose for vote-pass - Passport Voting Platform
 #
 # Services:
-# - registration-relayer: Identity registration on Rarimo L2
-# - proof-verification-relayer: Voting on Rarimo L2 (feat/noir-voting branch)
+# - registration-relayer: Passport registration on Rarimo L2
+# - proof-verification-relayer: Voting on Rarimo L2
+# - decentralized-auth-svc: JWT auth via ZK proofs
 #
 # Prerequisites:
 # 1. Private key with RMO tokens on Rarimo L2 Testnet
-# 2. Checkout feat/noir-voting branch: cd proof-verification-relayer && git checkout feat/noir-voting
 #
 # Usage:
 #   docker-compose up -d
@@ -17,7 +17,7 @@ services:
   # ============================================
   # Database (required by proof-verification-relayer)
   # ============================================
-  
+
   postgres:
     image: postgres:15-alpine
     container_name: rarimo-postgres
@@ -36,13 +36,13 @@ services:
       retries: 5
 
   # ============================================
-  # Registration Relayer (ID Registration)
+  # Registration Relayer (Passport Registration)
   # Sends registration transactions to Rarimo L2
   # ============================================
-  
+
   registration-relayer:
     build:
-      context: ./registration-relayer
+      context: ./services/registration-relayer
       dockerfile: Dockerfile
     container_name: registration-relayer
     ports:
@@ -56,12 +56,11 @@ services:
   # ============================================
   # Proof Verification Relayer (Voting)
   # Sends vote transactions to Rarimo L2
-  # NOTE: Uses feat/noir-voting branch!
   # ============================================
-  
+
   proof-verification-relayer:
     build:
-      context: ./proof-verification-relayer
+      context: ./services/proof-verification-relayer
       dockerfile: Dockerfile
     container_name: proof-verification-relayer
     ports:
@@ -77,9 +76,26 @@ services:
     restart: unless-stopped
 
   # ============================================
-  # API Gateway (Optional - routes all services)
+  # Decentralized Auth Service (JWT from ZK proofs)
   # ============================================
-  
+
+  decentralized-auth-svc:
+    build:
+      context: ./services/decentralized-auth-svc
+      dockerfile: Dockerfile
+    container_name: decentralized-auth-svc
+    ports:
+      - "8003:8000"
+    environment:
+      - KV_VIPER_FILE=/config.yaml
+    volumes:
+      - ./configs/decentralized-auth-svc.yaml:/config.yaml:ro
+    restart: unless-stopped
+
+  # ============================================
+  # API Gateway (routes all services)
+  # ============================================
+
   nginx:
     image: nginx:alpine
     container_name: rarimo-gateway
@@ -90,6 +106,7 @@ services:
     depends_on:
       - registration-relayer
       - proof-verification-relayer
+      - decentralized-auth-svc
     restart: unless-stopped
 
 volumes:

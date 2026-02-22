@@ -3,14 +3,13 @@ version: '3.8'
 # Docker Compose for Local Hardhat Development
 #
 # Points to local Hardhat node at http://host.docker.internal:8545
-# Uses contracts deployed on local Hardhat (see CLAUDE_LOG.md for addresses)
 #
 # Prerequisites:
-# 1. Start Hardhat node: cd /Users/nh2/dev/passport-contracts && npx hardhat node
-# 2. Deploy contracts (already done - addresses in configs)
+# 1. Start Hardhat node: cd passport-voting-contracts && npx hardhat node
+# 2. Deploy contracts
 #
 # Usage:
-#   cd /Users/nh2/dev/platform
+#   cd platform
 #   docker compose -f docker-compose-local.yaml up -d
 
 services:
@@ -36,7 +35,7 @@ services:
       retries: 5
 
   # ============================================
-  # Registration Relayer (ID Registration)
+  # Registration Relayer (Passport Registration)
   # Sends registration transactions to local Hardhat
   # ============================================
 
@@ -78,6 +77,23 @@ services:
     restart: unless-stopped
 
   # ============================================
+  # Decentralized Auth Service (JWT from ZK proofs)
+  # ============================================
+
+  decentralized-auth-svc:
+    image: decentralized-auth-svc:local
+    container_name: decentralized-auth-svc-local
+    ports:
+      - "8003:8000"
+    environment:
+      - KV_VIPER_FILE=/config.yaml
+    volumes:
+      - ./configs/decentralized-auth-svc.yaml:/config.yaml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  # ============================================
   # API Gateway (Routes all services)
   # ============================================
 
@@ -91,6 +107,7 @@ services:
     depends_on:
       - registration-relayer
       - proof-verification-relayer
+      - decentralized-auth-svc
     restart: unless-stopped
 
 volumes:
