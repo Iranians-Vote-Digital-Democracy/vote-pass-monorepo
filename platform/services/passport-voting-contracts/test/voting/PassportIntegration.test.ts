@@ -228,6 +228,18 @@ describe("Passport Integration", function () {
       expect(certInfo.serialNumber).to.not.be.empty;
     });
 
+    it("should reject SOD signature verification with wrong certificate", function () {
+      const valid = verifySODSignature(passportData.sodHex, loadTestCaPem());
+      expect(valid).to.equal(false, "SOD signature should NOT verify against a different certificate");
+    });
+
+    it("should reject completely unrelated DG1 data", function () {
+      // 128 bytes of zeros — structurally valid length but entirely wrong content
+      const garbageDg1 = "00".repeat(128);
+      const valid = verifyDG1Hash(passportData.sodHex, garbageDg1);
+      expect(valid).to.equal(false, "Garbage DG1 should NOT match the SOD hash");
+    });
+
     it("should detect tampered DG1 via SOD hash mismatch", function () {
       // Tamper one byte in the MRZ area (byte 10 = part of issuing state)
       const tamperedDg1 = tamperDG1Byte(passportData.dg1Hex, 10, 0x58); // 'X'
@@ -403,6 +415,15 @@ describe("Passport Integration", function () {
       cscaPem = loadUSCSCA();
     });
 
+    it("should build empty Merkle tree with zero root when given no certificates", function () {
+      const tree = buildICAOMerkleTree([]);
+
+      expect(tree.leaves).to.have.lengthOf(0);
+      // Empty MerkleTree returns "0x" as root — no valid proof can be generated
+      expect(tree.root).to.equal("0x");
+      expect(tree.getProof(cscaPem)).to.have.lengthOf(0, "No proof possible from empty tree");
+    });
+
     it("should build ICAO Merkle tree containing US CSCA", function () {
       const tree = buildICAOMerkleTree([cscaPem]);
 
@@ -502,6 +523,15 @@ describe("Passport Integration", function () {
       );
     });
 
+    it("should produce deterministic certificatesRoot for same certificateKey", function () {
+      const certKey = computeCertificateKey(passportData.docSigningCertPem);
+      const root1 = computeCertificatesRoot(certKey);
+      const root2 = computeCertificatesRoot(certKey);
+
+      expect(root1).to.equal(root2, "Same certificateKey must always produce the same root");
+      expect(root1).to.not.equal(0n, "Root should be non-zero");
+    });
+
     it("should produce different certificateKeys for different certs", function () {
       const realCertKey = computeCertificateKey(passportData.docSigningCertPem);
 
@@ -530,7 +560,7 @@ describe("Passport Integration", function () {
       passportData = loadPassportData();
     });
 
-    it("should parse DG1 fields matching personDetails", function () {
+    it("should parse all DG1 fields matching personDetails", function () {
       const fields = parseDG1Fields(passportData.dg1Hex);
 
       // Document type should be 'P' for passport
@@ -552,6 +582,35 @@ describe("Passport Integration", function () {
       const expectedSex = passportData.personDetails.gender === "MALE" ? "M" :
                           passportData.personDetails.gender === "FEMALE" ? "F" : passportData.personDetails.gender;
       expect(fields.sex).to.equal(expectedSex, "MRZ sex should match personDetails");
+
+      // Document number should match
+      expect(fields.documentNumber).to.equal(
+        passportData.personDetails.documentNumber,
+        "MRZ document number should match personDetails",
+      );
+
+      // Surname should match
+      expect(fields.surname.toUpperCase()).to.equal(
+        passportData.personDetails.surname.toUpperCase(),
+        "MRZ surname should match personDetails",
+      );
+
+      // Name should match
+      expect(fields.givenNames.toUpperCase()).to.equal(
+        passportData.personDetails.name.toUpperCase(),
+        "MRZ given names should match personDetails",
+      );
+
+      // Date of birth — MRZ uses YYMMDD, personDetails uses DD.MM.YYYY
+      // Convert DD.MM.YYYY → YYMMDD for comparison
+      const dobParts = passportData.personDetails.dateOfBirth.split(".");
+      const expectedDob = dobParts[2].slice(2) + dobParts[1] + dobParts[0]; // YYMMDD
+      expect(fields.dateOfBirth).to.equal(expectedDob, "MRZ date of birth should match personDetails");
+
+      // Date of expiry — same format conversion
+      const expParts = passportData.personDetails.dateOfExpiry.split(".");
+      const expectedExp = expParts[2].slice(2) + expParts[1] + expParts[0]; // YYMMDD
+      expect(fields.dateOfExpiry).to.equal(expectedExp, "MRZ date of expiry should match personDetails");
     });
 
     it("should produce different dg1Hash when DG1 is tampered", async function () {
