@@ -9,6 +9,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.app.ActivityOptionsCompat
 import androidx.fragment.app.Fragment
 import org.iranUnchained.R
+import org.iranUnchained.data.models.ProposalData
 import org.iranUnchained.data.models.VotingData
 import org.iranUnchained.feature.browser.BrowserActivity
 import org.iranUnchained.feature.intro.IntroActivity
@@ -92,9 +93,12 @@ class Navigator private constructor() {
         }
     }
 
-    fun openVotePage(votingData: VotingData) {
+    fun openVotePage(votingData: VotingData, proposalData: ProposalData? = null) {
         val intent = Intent(context, VotePageActivity::class.java)
         intent.putExtra(VotePageActivity.VOTING_DATA, votingData)
+        if (proposalData != null) {
+            intent.putExtra(VotePageActivity.PROPOSAL_DATA, proposalData)
+        }
         performIntent(intent)
     }
 
@@ -114,9 +118,12 @@ class Navigator private constructor() {
         performIntent(intent)
     }
 
-    fun openOptionVoting(votingData: VotingData) {
+    fun openOptionVoting(votingData: VotingData, proposalData: ProposalData? = null) {
         val intent = Intent(context, VoteOptionsActivity::class.java)
         intent.putExtra(VoteOptionsActivity.VOTING_DATA, votingData)
+        if (proposalData != null) {
+            intent.putExtra(VoteOptionsActivity.PROPOSAL_DATA, proposalData)
+        }
         performIntent(intent)
     }
 
@@ -153,11 +160,13 @@ class Navigator private constructor() {
         performIntent(intent)
     }
 
-    fun openVoteProcessing(voteData: VotingData, selectedContract: String? = null) {
+    fun openVoteProcessing(voteData: VotingData, selectedContract: String? = null, proposalData: ProposalData? = null) {
         val intent = Intent(context, VoteProcessingActivity::class.java)
         intent.putExtra(VoteProcessingActivity.VOTE_DATA, voteData)
         if (selectedContract != null)
             intent.putExtra(VoteProcessingActivity.VOTE_REFERENDUM_CONTRACT, selectedContract)
+        if (proposalData != null)
+            intent.putExtra(VoteProcessingActivity.PROPOSAL_DATA, proposalData)
         performIntent(intent)
     }
 

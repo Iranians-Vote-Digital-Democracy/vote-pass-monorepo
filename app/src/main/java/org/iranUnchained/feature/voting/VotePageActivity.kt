@@ -13,6 +13,7 @@ import androidx.databinding.DataBindingUtil
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.iranUnchained.R
 import org.iranUnchained.base.view.BaseActivity
+import org.iranUnchained.data.models.ProposalData
 import org.iranUnchained.data.models.VotingData
 import org.iranUnchained.databinding.ActivityVotePageBinding
 import org.iranUnchained.databinding.LayoutRequirementDeclineItemBinding
@@ -27,6 +28,7 @@ class VotePageActivity : BaseActivity() {
 
     private lateinit var binding: ActivityVotePageBinding
     private lateinit var votingData: VotingData
+    private var proposalData: ProposalData? = null
 
     private var age: Int = 0
     private var issuerAuthority: String = ""
@@ -36,6 +38,7 @@ class VotePageActivity : BaseActivity() {
         binding.lifecycleOwner = this
 
         votingData = intent?.getParcelableExtra(VOTING_DATA)!!
+        proposalData = intent?.getParcelableExtra(PROPOSAL_DATA)
         binding.data = votingData
 
         initButtons()
@@ -153,7 +156,7 @@ class VotePageActivity : BaseActivity() {
                 }
 
                 binding.mainButton.id -> {
-                    Navigator.from(this).openOptionVoting(votingData)
+                    Navigator.from(this).openOptionVoting(votingData, proposalData)
                 }
             }
         }
@@ -212,6 +215,7 @@ class VotePageActivity : BaseActivity() {
 
     companion object {
         const val VOTING_DATA = "voting_data"
+        const val PROPOSAL_DATA = "proposal_data"
         private const val APP_SETTINGS_ACTIVITY_REQUEST_CODE = 550
     }
 }

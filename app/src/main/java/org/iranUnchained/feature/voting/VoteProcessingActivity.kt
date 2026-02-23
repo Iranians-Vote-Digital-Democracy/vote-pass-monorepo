@@ -10,9 +10,11 @@ import com.google.android.material.textview.MaterialTextView
 import io.reactivex.rxkotlin.addTo
 import org.iranUnchained.R
 import org.iranUnchained.base.view.BaseActivity
+import org.iranUnchained.data.models.ProposalData
 import org.iranUnchained.data.models.VotingData
 import org.iranUnchained.databinding.ActivityVoteProcessingBinding
 import org.iranUnchained.feature.onBoarding.logic.GenerateVerifiableCredential
+import org.iranUnchained.feature.voting.logic.VoteSubmissionService
 import org.iranUnchained.logic.persistance.SecureSharedPrefs
 import org.iranUnchained.utils.Navigator
 import org.iranUnchained.utils.ObservableTransformers
@@ -24,6 +26,7 @@ class VoteProcessingActivity : BaseActivity() {
 
     private lateinit var votingData: VotingData
     private lateinit var statusList: List<MaterialTextView>
+    private var proposalData: ProposalData? = null
 
     private lateinit var selectedContract: String
     private var isSigned = false
@@ -32,6 +35,7 @@ class VoteProcessingActivity : BaseActivity() {
         binding.lifecycleOwner = this
 
         votingData = intent?.getParcelableExtra(VOTE_DATA)!!
+        proposalData = intent?.getParcelableExtra(PROPOSAL_DATA)
 
         val referendumContract = intent?.getStringExtra(VOTE_REFERENDUM_CONTRACT)
 
@@ -44,7 +48,44 @@ class VoteProcessingActivity : BaseActivity() {
 
         statusList = listOf(binding.option1, binding.option2, binding.option3, binding.option4)
         initButtons()
-        changeStatusView()
+
+        if (proposalData != null) {
+            submitVoteV2()
+        } else {
+            changeStatusView()
+        }
+    }
+
+    private fun submitVoteV2() {
+        val proposal = proposalData ?: return
+        val selectedOption = SecureSharedPrefs.getVoteResult(this)
+        if (selectedOption < 1) {
+            handleUnknownError()
+            return
+        }
+
+        // Convert 1-based option index to 0-based for bitmask encoding
+        val selectedOptions = listOf(selectedOption - 1)
+
+        VoteSubmissionService(this, apiProvider)
+            .submitVote(proposal, selectedOptions)
+            .compose(ObservableTransformers.defaultSchedulers())
+            .subscribe({ progress ->
+                if (progress.step < statusList.size) {
+                    updateLoading(statusList[progress.step])
+                }
+            }, { error ->
+                Log.e("VoteProcessing", "Vote submission failed", error)
+
+                val message = error.message ?: ""
+                if (message.contains("user already registered") || message.contains("already voted")) {
+                    handleAlreadyRegisteredError()
+                } else {
+                    handleUnknownError()
+                }
+            }, {
+                handleEndOfHandler()
+            }).addTo(compositeDisposable)
     }
 
     private fun changeStatusView() {
@@ -173,6 +214,7 @@ class VoteProcessingActivity : BaseActivity() {
     companion object {
         const val VOTE_DATA = "VOTE_DATA"
         const val VOTE_REFERENDUM_CONTRACT = "VOTE_REFERENDUM_CONTRACT"
+        const val PROPOSAL_DATA = "PROPOSAL_DATA"
     }
 
 }
