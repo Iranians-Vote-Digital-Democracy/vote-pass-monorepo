@@ -169,6 +169,11 @@ class VoteSubmissionService(
     }
 
     private fun generateGroth16Proof(inputs: ProofInputs): org.iranUnchained.data.models.ZkProof {
+        if (BuildConfig.IS_LOCAL_DEV) {
+            Log.i(TAG, "Local dev: generating mock proof (VerifierMock accepts any proof)")
+            return generateMockProof()
+        }
+
         val zkpUseCase = ZKPUseCase(context)
         val zkpTools = ZKPTools(context)
 
@@ -177,6 +182,24 @@ class VoteSubmissionService(
             R.raw.vote_smt,
             inputs.inputsJson.toByteArray(),
             zkpTools::voteSMT
+        )
+    }
+
+    private fun generateMockProof(): org.iranUnchained.data.models.ZkProof {
+        // Generate random proof points — VerifierMock on localhost accepts any proof
+        val rand = { java.security.SecureRandom().let { r ->
+            val b = ByteArray(32); r.nextBytes(b)
+            org.web3j.utils.Numeric.toHexStringNoPrefix(b)
+        }}
+        val proof = org.iranUnchained.data.models.Proof(
+            pi_a = listOf(rand(), rand()),
+            pi_b = listOf(listOf(rand(), rand()), listOf(rand(), rand())),
+            pi_c = listOf(rand(), rand()),
+            protocol = "groth16"
+        )
+        return org.iranUnchained.data.models.ZkProof(
+            proof = proof,
+            pub_signals = emptyList()
         )
     }
 

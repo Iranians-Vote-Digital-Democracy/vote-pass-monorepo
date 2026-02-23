@@ -23,6 +23,7 @@ import org.iranUnchained.logic.persistance.SecureSharedPrefs
 import org.iranUnchained.utils.Navigator
 import org.iranUnchained.utils.ObservableTransformers
 import org.iranUnchained.BuildConfig
+import org.iranUnchained.utils.LocalDevSeeder
 import org.iranUnchained.utils.unSafeLazy
 
 
@@ -61,6 +62,11 @@ class VoteListActivity : BaseActivity() {
 
         // Only show export button in local dev builds
         binding.scanExportButton.visibility = if (BuildConfig.IS_LOCAL_DEV) View.VISIBLE else View.GONE
+
+        // Pre-seed identity data for local dev (so voting flow works without passport scan)
+        if (BuildConfig.IS_LOCAL_DEV) {
+            LocalDevSeeder.seedIfNeeded(this)
+        }
 
         initButtons()
     }
