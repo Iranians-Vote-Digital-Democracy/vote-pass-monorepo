@@ -16,6 +16,7 @@ import org.iranUnchained.utils.nfc.ImageUtil
 import org.iranUnchained.utils.PassportDataExporter
 import org.iranUnchained.utils.nfc.model.EDocument
 import org.iranUnchained.utils.withPersianDigits
+import android.util.Log
 import android.widget.Toast
 
 class ResultDataPassportFragment : BaseFragment() {
@@ -52,13 +53,17 @@ class ResultDataPassportFragment : BaseFragment() {
         binding.nationality.text = eDocumentData!!.personDetails!!.nationality
 
 
+        Log.i("PASSPORT_EXPORT", "ResultDataPassportFragment loaded, eDocumentData=${eDocumentData != null}")
+
         initButtons()
         return binding.root
     }
 
     private fun initButtons() {
+        Log.i("PASSPORT_EXPORT", "initButtons called, export button=${binding.exportTestDataButton}")
         clickHelper.addViews(binding.confirmButton, binding.exportTestDataButton)
         clickHelper.setOnClickListener {
+            Log.i("PASSPORT_EXPORT", "Button clicked: id=${it.id}")
             when (it.id) {
                 binding.confirmButton.id -> {
 
