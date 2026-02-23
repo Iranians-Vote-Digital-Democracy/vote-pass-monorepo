@@ -10,7 +10,7 @@ import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.databinding.DataBindingUtil
 import org.iranUnchained.R
-import org.iranUnchained.base.BaseConfig
+import org.iranUnchained.base.ActiveConfig
 import org.iranUnchained.base.view.BaseBottomSheetDialog
 import org.iranUnchained.databinding.FragmentSettingsBinding
 import org.iranUnchained.logic.persistance.SecureSharedPrefs
@@ -64,7 +64,7 @@ class SettingsFragment : BaseBottomSheetDialog() {
                 }
 
                 binding.privacyPolicy.id -> {
-                    Navigator.from(this).openBrowser(BaseConfig.PRIVACY_POLICY_URL)
+                    Navigator.from(this).openBrowser(ActiveConfig.PRIVACY_POLICY_URL)
                 }
             }
         }

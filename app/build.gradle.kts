@@ -33,6 +33,19 @@ android {
         }
     }
 
+    flavorDimensions += "environment"
+    productFlavors {
+        create("prod") {
+            dimension = "environment"
+            buildConfigField("boolean", "IS_LOCAL_DEV", "false")
+        }
+        create("local") {
+            dimension = "environment"
+            applicationIdSuffix = ".local"
+            buildConfigField("boolean", "IS_LOCAL_DEV", "true")
+        }
+    }
+
     buildTypes {
 
         release {
@@ -54,6 +67,7 @@ android {
     buildFeatures {
         viewBinding = true
         dataBinding = true
+        buildConfig = true
     }
     externalNativeBuild {
         cmake {

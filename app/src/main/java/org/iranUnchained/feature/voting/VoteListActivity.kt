@@ -13,7 +13,8 @@ import com.google.gson.reflect.TypeToken
 import io.reactivex.rxkotlin.addTo
 import org.iranUnchained.R
 import org.iranUnchained.base.view.BaseActivity
-import org.iranUnchained.data.datasource.api.VotingProvider
+import org.iranUnchained.data.datasource.api.ProposalProvider
+import org.iranUnchained.data.models.ProposalData
 import org.iranUnchained.data.models.VotingData
 import org.iranUnchained.databinding.ActivityVoteListBinding
 import org.iranUnchained.feature.setings.SettingsFragment
@@ -21,6 +22,7 @@ import org.iranUnchained.feature.voting.logic.VoteAdapter
 import org.iranUnchained.logic.persistance.SecureSharedPrefs
 import org.iranUnchained.utils.Navigator
 import org.iranUnchained.utils.ObservableTransformers
+import org.iranUnchained.BuildConfig
 import org.iranUnchained.utils.unSafeLazy
 
 
@@ -30,6 +32,8 @@ class VoteListActivity : BaseActivity() {
 
     private var voteList: List<VotingData> = listOf()
     private var voteListEnded: List<VotingData> = listOf()
+    private var proposalList: List<ProposalData> = listOf()
+    private var proposalListEnded: List<ProposalData> = listOf()
 
 
     private val voteAdapter by unSafeLazy {
@@ -55,23 +59,28 @@ class VoteListActivity : BaseActivity() {
         val manager = LinearLayoutManager(this)
         binding.recyclerViewVote.layoutManager = manager
 
+        // Only show export button in local dev builds
+        binding.scanExportButton.visibility = if (BuildConfig.IS_LOCAL_DEV) View.VISIBLE else View.GONE
+
         initButtons()
     }
 
     private fun subscribeToVotes() {
 
-        VotingProvider.getVotes(apiProvider)
+        ProposalProvider.getProposals(apiProvider)
             .compose(ObservableTransformers.defaultSchedulersSingle()).doOnSuccess {
                 binding.loader.visibility = View.GONE
             }.doOnSubscribe {
                 binding.loader.visibility = View.VISIBLE
-            }.subscribe({
-                voteList = it.first
-                voteListEnded = it.second
+            }.subscribe({ (active, ended) ->
+                proposalList = active
+                proposalListEnded = ended
+                voteList = active.map { it.toVotingData() }
+                voteListEnded = ended.map { it.toVotingData() }
                 voteAdapter.addAll(voteList)
 
             }, {
-                Log.e("VotingProvider", it.message, it)
+                Log.e("ProposalProvider", it.message, it)
                 subscribeToVotes()
             }).addTo(compositeDisposable)
     }
@@ -103,7 +112,7 @@ class VoteListActivity : BaseActivity() {
 
     private fun initButtons() {
         clickHelper.addViews(
-            binding.settings, binding.title
+            binding.settings, binding.title, binding.scanExportButton
         )
         clickHelper.setOnClickListener {
             when (it.id) {
@@ -111,6 +120,10 @@ class VoteListActivity : BaseActivity() {
                     val modalBottomSheet = SettingsFragment()
                     modalBottomSheet.logoutCallback = ::clearAllData
                     modalBottomSheet.show(supportFragmentManager, SettingsFragment.TAG)
+                }
+                binding.scanExportButton.id -> {
+                    Log.i("PASSPORT_EXPORT", "Scan & Export button tapped, opening ScanActivity")
+                    Navigator.from(this).openScan()
                 }
             }
         }

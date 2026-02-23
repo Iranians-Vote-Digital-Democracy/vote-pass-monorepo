@@ -8,7 +8,7 @@ import android.view.ViewGroup
 import androidx.core.os.bundleOf
 import androidx.databinding.DataBindingUtil
 import org.iranUnchained.R
-import org.iranUnchained.base.BaseConfig
+import org.iranUnchained.base.ActiveConfig
 import org.iranUnchained.base.view.BaseFragment
 import org.iranUnchained.databinding.FragmentCameraScanPassportBinding
 import org.iranUnchained.mlkit.text.TextRecognitionProcessor.ResultListener
@@ -84,7 +84,7 @@ class CameraScanPassportFragment : BaseFragment(), ResultListener {
         clickHelper.setOnClickListener {
             when(it.id){
                 binding.privacyText.id -> {
-                    Navigator.from(this).openBrowser(BaseConfig.PRIVACY_POLICY_URL)
+                    Navigator.from(this).openBrowser(ActiveConfig.PRIVACY_POLICY_URL)
                 }
             }
         }

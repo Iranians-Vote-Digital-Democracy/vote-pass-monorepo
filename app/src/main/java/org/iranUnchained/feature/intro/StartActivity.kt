@@ -4,7 +4,7 @@ package org.iranUnchained.feature.intro
 import android.os.Bundle
 import androidx.databinding.DataBindingUtil
 import org.iranUnchained.R
-import org.iranUnchained.base.BaseConfig
+import org.iranUnchained.base.ActiveConfig
 import org.iranUnchained.base.view.BaseActivity
 import org.iranUnchained.databinding.ActivityStartBinding
 import org.iranUnchained.utils.LocalizationManager
@@ -37,7 +37,7 @@ class StartActivity : BaseActivity() {
                 }
 
                 binding.privacyPolicy.id -> {
-                    Navigator.from(this).openBrowser(BaseConfig.PRIVACY_POLICY_URL)
+                    Navigator.from(this).openBrowser(ActiveConfig.PRIVACY_POLICY_URL)
                 }
 
             }

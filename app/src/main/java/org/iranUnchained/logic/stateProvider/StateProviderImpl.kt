@@ -51,7 +51,11 @@ class StateProviderImpl(val context: Context, val apiProvider: ApiProvider) : St
     override fun getGISTProof(userId: String?, blockNumber: String?): ByteArray {
 
         val response =
-            apiProvider.circuitBackend.gistData(userId!!, blockNumber ?: "").blockingGet()
+            apiProvider.circuitBackend.gistData(
+                org.iranUnchained.base.ActiveConfig.GIST_DATA_LINK,
+                userId!!,
+                blockNumber ?: ""
+            ).blockingGet()
 
         Log.i("gistDataURL", "userId = $userId, blockNumber = $blockNumber")
 

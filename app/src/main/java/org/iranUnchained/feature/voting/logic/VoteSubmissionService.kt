@@ -5,7 +5,7 @@ import android.util.Log
 import io.reactivex.Observable
 import io.reactivex.ObservableEmitter
 import org.iranUnchained.R
-import org.iranUnchained.base.BaseConfig
+import org.iranUnchained.base.ActiveConfig
 import org.iranUnchained.contracts.ProposalsState
 import org.iranUnchained.data.models.IdentityData
 import org.iranUnchained.data.models.ProposalData
@@ -118,7 +118,7 @@ class VoteSubmissionService(
 
         // Get proposal event ID for nullifier computation
         val proposalsState = ProposalsState.load(
-            BaseConfig.PROPOSAL_ADDRESS, web3j, credentials, gasProvider
+            ActiveConfig.PROPOSAL_ADDRESS, web3j, credentials, gasProvider
         )
         val proposalEventId = proposalsState.getProposalEventId(
             BigInteger.valueOf(proposalData.proposalId)
@@ -214,7 +214,7 @@ class VoteSubmissionService(
         )
 
         val response = apiProvider.circuitBackend
-            .submitVote(BaseConfig.VOTE_LINK, request)
+            .submitVote(ActiveConfig.VOTE_LINK, request)
             .blockingGet()
 
         return response.data.id
@@ -230,7 +230,7 @@ class VoteSubmissionService(
         val gasProvider = DefaultGasProvider()
 
         val registration = org.iranUnchained.contracts.SRegistration.load(
-            BaseConfig.REGISTRATION_ADDRESS, web3j, credentials, gasProvider
+            ActiveConfig.REGISTRATION_ADDRESS, web3j, credentials, gasProvider
         )
         return registration.getRoot().send()
     }

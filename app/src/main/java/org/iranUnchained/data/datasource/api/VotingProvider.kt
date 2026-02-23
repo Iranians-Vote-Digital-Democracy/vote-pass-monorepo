@@ -3,7 +3,7 @@ package org.iranUnchained.data.datasource.api
 import android.util.Log
 import io.reactivex.Observable
 import io.reactivex.Single
-import org.iranUnchained.base.BaseConfig
+import org.iranUnchained.base.ActiveConfig
 import org.iranUnchained.contracts.RegistrationVerifier
 import org.iranUnchained.contracts.SRegistration
 import org.iranUnchained.data.models.RequirementsForVoting
@@ -29,11 +29,11 @@ object VotingProvider {
             val gasProvider = DefaultGasProvider()
 
             val contract = org.iranUnchained.contracts.RegistrationVoting.load(
-                BaseConfig.REGISTRATION_ADDRESS, web3j, credentials, gasProvider
+                ActiveConfig.REGISTRATION_ADDRESS, web3j, credentials, gasProvider
             )
 
             val numberOfVoting = contract.poolCountByProposerAndType(
-                BaseConfig.PROPOSAL_ADDRESS, BaseConfig.REGISTRATION_TYPE
+                ActiveConfig.PROPOSAL_ADDRESS, ActiveConfig.REGISTRATION_TYPE
             ).send()
 
             val offset: BigInteger = if (numberOfVoting <= BigInteger.valueOf(MAX_DISPLAY_VOTES)) {
@@ -44,8 +44,8 @@ object VotingProvider {
 
 
             val resp = contract.listPoolsByProposerAndType(
-                BaseConfig.PROPOSAL_ADDRESS,
-                BaseConfig.REGISTRATION_TYPE,
+                ActiveConfig.PROPOSAL_ADDRESS,
+                ActiveConfig.REGISTRATION_TYPE,
                 offset,//numberOfVoting.minus(BigInteger.valueOf(1L)),
                 BigInteger.valueOf(MAX_DISPLAY_VOTES)
             ).send()

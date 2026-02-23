@@ -9,7 +9,7 @@ import identity.Identity_
 import io.reactivex.Observable
 import io.reactivex.Single
 import org.iranUnchained.R
-import org.iranUnchained.base.BaseConfig
+import org.iranUnchained.base.ActiveConfig
 import org.iranUnchained.contracts.SRegistration
 import org.iranUnchained.data.models.Data
 import org.iranUnchained.data.models.IdCardSod
@@ -157,7 +157,7 @@ class GenerateVerifiableCredential {
 
             Log.i("Payload", passportVerificationProof)
 
-            val response = apiProvider.circuitBackend.createIdentity(payload).blockingGet()
+            val response = apiProvider.circuitBackend.createIdentity(ActiveConfig.CREATE_IDENTITY_LINK, payload).blockingGet()
 
             val timestamp = System.currentTimeMillis() / 1000
 
@@ -258,7 +258,9 @@ class GenerateVerifiableCredential {
 
                 Log.i("IDENTITY DID", identity.did)
                 val claimOfferResponse =
-                    apiProvider.circuitBackend.claimOffer(claim_id).blockingGet()
+                    apiProvider.circuitBackend.claimOffer(
+                        ActiveConfig.CLAIM_OFFER_LINK_V2.replace("{claim_id}", claim_id)
+                    ).blockingGet()
 
                 val rawClaimOfferResponse = gson.toJson(claimOfferResponse)
 
@@ -279,7 +281,7 @@ class GenerateVerifiableCredential {
             if (!SecureSharedPrefs.checkFinalizes(context, votingAddress)) {
 
                 val callData: ByteArray = identity.register(
-                    BaseConfig.CORE_LINK,
+                    ActiveConfig.CORE_LINK,
                     issuerDid,
                     votingAddress,
                     schemaJson,
@@ -293,7 +295,7 @@ class GenerateVerifiableCredential {
 
 
                 val resp =
-                    apiProvider.circuitBackend.sendRegistration(calldataRequest).blockingGet()
+                    apiProvider.circuitBackend.sendRegistration(ActiveConfig.SEND_REGISTRATION_LINK, calldataRequest).blockingGet()
 
                 SecureSharedPrefs.addFinalizationVote(context, votingAddress)
                 it.onNext(2)
@@ -343,7 +345,7 @@ class GenerateVerifiableCredential {
             }
 
             val byteArrayResponse = identity.isFinalized(
-                BaseConfig.CORE_LINK, issuerDid, identityData.timeStamp.toLong(), stateData
+                ActiveConfig.CORE_LINK, issuerDid, identityData.timeStamp.toLong(), stateData
             )
 
 
