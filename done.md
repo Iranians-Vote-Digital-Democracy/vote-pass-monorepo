@@ -213,3 +213,16 @@
 - Steps: Hardhat node → contract deploy → proposal seed → Docker services
 - Supports `--skip-docker` (contracts only) and `--stop` (teardown)
 - Parent repo commit: `2a80968`
+
+**E2E Vote Submission Bug Fixes**
+Three critical bugs discovered during end-to-end vote testing on Android emulator:
+1. **web3j ABI encoding bug**: `DefaultFunctionEncoder` adds extra byte for `StaticStruct(StaticArray2)` params — replaced with manual hex ABI encoding (correct selector `0xe4ab0833`)
+2. **Locale-sensitive date encoding**: `String.format("%02d")` produces non-ASCII digits (Arabic-Indic) on Farsi-locale devices — fixed with `Locale.US`
+3. **Vote bitmask format**: Changed from positional array `[1<<opt0, 1<<opt1, ...]` to single-element bitmask `[1<<selected]` matching contract's per-question-group model
+4. **Mock proof format**: Changed from hex strings to decimal strings (CalldataEncoder's `BigInteger(str)` defaults to base 10)
+5. **Direct-to-chain submission**: Added `submitDirectToChain()` for local dev (bypasses relayer, uses Hardhat account #0)
+6. **Seed script fix**: `acceptedOptions` changed from multi-element to single-element arrays (`[7]` for 3 choices, `[3]` for 2 choices)
+
+**End-to-end vote successfully recorded on-chain** — tx `0xadbb4cd9...` (487,601 gas)
+- Android repo commit: `0b4a60a`
+- Parent repo commit: `21f961a`

@@ -10,6 +10,8 @@
 - [x] Phase 4: Pre-seed identity + mock proof for local dev — `eb17c75` (android)
 - [x] Phase 5: Extract pure functions + JVM unit tests (21 new) — `9180d7c` (android)
 - [x] Phase 6: Local E2E orchestration script — `2a80968`
+- [x] E2E bug fixes: ABI encoding, locale dates, vote bitmask, mock proof — `0b4a60a` (android), `21f961a` (platform)
+- [x] **E2E vote successfully submitted on-chain** (tx 0xadbb4cd9, 487k gas)
 - [ ] Phase 7: Self-host identity-provider-service (follow-up)
 
 ## Completed
