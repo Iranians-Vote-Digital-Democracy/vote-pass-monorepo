@@ -28,99 +28,92 @@ class VoteBitmaskTest {
         citizenshipWhitelist = emptyList()
     )
 
-    // Single-select: each result is a power of 2
+    // Single-select: produces single-element array with power-of-2 bitmask
 
     @Test
-    fun `single option 0 encodes to 1`() {
-        val result = CalldataEncoder.encodeVoteBitmasks(listOf(0))
+    fun `single option 0 of 4 - bitmask is 1`() {
+        val result = CalldataEncoder.encodeVoteBitmasks(listOf(0), 4)
         assertEquals(1, result.size)
-        assertEquals(BigInteger.ONE, result[0])
+        assertEquals(BigInteger.ONE, result[0]) // 2^0 = 1
     }
 
     @Test
-    fun `single option 1 encodes to 2`() {
-        val result = CalldataEncoder.encodeVoteBitmasks(listOf(1))
+    fun `single option 1 of 2 - bitmask is 2`() {
+        val result = CalldataEncoder.encodeVoteBitmasks(listOf(1), 2)
         assertEquals(1, result.size)
-        assertEquals(BigInteger.valueOf(2), result[0])
+        assertEquals(BigInteger.TWO, result[0]) // 2^1 = 2
     }
 
     @Test
-    fun `single option 3 encodes to 8`() {
-        val result = CalldataEncoder.encodeVoteBitmasks(listOf(3))
+    fun `single option 2 of 4 - bitmask is 4`() {
+        val result = CalldataEncoder.encodeVoteBitmasks(listOf(2), 4)
         assertEquals(1, result.size)
-        assertEquals(BigInteger.valueOf(8), result[0])
+        assertEquals(BigInteger.valueOf(4), result[0]) // 2^2 = 4
     }
 
     @Test
-    fun `all single options 0-7 are powers of 2`() {
+    fun `single option 3 of 4 - bitmask is 8`() {
+        val result = CalldataEncoder.encodeVoteBitmasks(listOf(3), 4)
+        assertEquals(1, result.size)
+        assertEquals(BigInteger.valueOf(8), result[0]) // 2^3 = 8
+    }
+
+    @Test
+    fun `all single options produce power-of-2 bitmasks`() {
         for (i in 0..7) {
-            val result = CalldataEncoder.encodeVoteBitmasks(listOf(i))
+            val result = CalldataEncoder.encodeVoteBitmasks(listOf(i), 8)
             assertEquals(1, result.size)
             val expected = BigInteger.ONE.shiftLeft(i)
-            assertEquals("Option $i should be 2^$i = $expected", expected, result[0])
+            assertEquals("Option $i", expected, result[0])
         }
     }
 
-    // Multichoice: any combination
+    // Multichoice: OR of selected bit positions
 
     @Test
-    fun `multichoice - two options produce two bitmasks`() {
-        val result = CalldataEncoder.encodeVoteBitmasks(listOf(0, 1))
-        assertEquals(2, result.size)
-        assertEquals(BigInteger.ONE, result[0])
-        assertEquals(BigInteger.valueOf(2), result[1])
+    fun `multichoice - two adjacent options`() {
+        val result = CalldataEncoder.encodeVoteBitmasks(listOf(0, 1), 3)
+        assertEquals(1, result.size)
+        assertEquals(BigInteger.valueOf(3), result[0]) // 0b11 = 3
     }
 
     @Test
     fun `multichoice - three non-consecutive options`() {
-        val result = CalldataEncoder.encodeVoteBitmasks(listOf(0, 3, 7))
-        assertEquals(3, result.size)
-        assertEquals(BigInteger.ONE, result[0])         // 1 << 0 = 1
-        assertEquals(BigInteger.valueOf(8), result[1])   // 1 << 3 = 8
-        assertEquals(BigInteger.valueOf(128), result[2]) // 1 << 7 = 128
+        val result = CalldataEncoder.encodeVoteBitmasks(listOf(0, 3, 7), 8)
+        assertEquals(1, result.size)
+        // bit 0 + bit 3 + bit 7 = 1 + 8 + 128 = 137
+        assertEquals(BigInteger.valueOf(137), result[0])
     }
 
     @Test
     fun `multichoice - all 8 options selected`() {
         val options = (0..7).toList()
-        val result = CalldataEncoder.encodeVoteBitmasks(options)
-        assertEquals(8, result.size)
-        options.forEachIndexed { idx, opt ->
-            assertEquals(BigInteger.ONE.shiftLeft(opt), result[idx])
-        }
+        val result = CalldataEncoder.encodeVoteBitmasks(options, 8)
+        assertEquals(1, result.size)
+        assertEquals(BigInteger.valueOf(255), result[0]) // 0xFF = all 8 bits set
     }
 
     // Boundary conditions
 
     @Test
-    fun `empty list yields empty result`() {
-        val result = CalldataEncoder.encodeVoteBitmasks(emptyList())
-        assertTrue(result.isEmpty())
-    }
-
-    @Test
-    fun `option 0 is minimum valid choice`() {
-        val result = CalldataEncoder.encodeVoteBitmasks(listOf(0))
-        assertEquals(BigInteger.ONE, result[0])
-    }
-
-    @Test
-    fun `option 15 encodes to 32768`() {
-        val result = CalldataEncoder.encodeVoteBitmasks(listOf(15))
-        assertEquals(BigInteger.valueOf(32768), result[0])
-    }
-
-    @Test
-    fun `option 31 encodes to 2^31`() {
-        val result = CalldataEncoder.encodeVoteBitmasks(listOf(31))
-        assertEquals(BigInteger.ONE.shiftLeft(31), result[0])
-    }
-
-    @Test
-    fun `large option index 255 produces valid power of 2`() {
-        val result = CalldataEncoder.encodeVoteBitmasks(listOf(255))
+    fun `empty selection yields zero bitmask`() {
+        val result = CalldataEncoder.encodeVoteBitmasks(emptyList(), 3)
         assertEquals(1, result.size)
-        assertEquals(BigInteger.ONE.shiftLeft(255), result[0])
+        assertEquals(BigInteger.ZERO, result[0])
+    }
+
+    @Test
+    fun `zero total options yields zero bitmask`() {
+        val result = CalldataEncoder.encodeVoteBitmasks(emptyList(), 0)
+        assertEquals(1, result.size)
+        assertEquals(BigInteger.ZERO, result[0])
+    }
+
+    @Test
+    fun `option 0 of 1 is minimum valid choice`() {
+        val result = CalldataEncoder.encodeVoteBitmasks(listOf(0), 1)
+        assertEquals(1, result.size)
+        assertEquals(BigInteger.ONE, result[0])
     }
 
     // isMultichoice bitmask tests

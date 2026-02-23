@@ -22,6 +22,7 @@ import org.iranUnchained.utils.ZKPTools
 import org.iranUnchained.utils.ZKPUseCase
 import org.web3j.crypto.Credentials
 import org.web3j.crypto.Keys
+import org.web3j.tx.RawTransactionManager
 import org.web3j.tx.gas.DefaultGasProvider
 import java.math.BigInteger
 import java.util.Calendar
@@ -128,16 +129,16 @@ class VoteSubmissionService(
         // Get registration SMT root
         val registrationRoot = getRegistrationRoot(credentials)
 
-        // Encode current date as yyMMdd
+        // Encode current date as 6 ASCII bytes (YYMMDD)
         val cal = Calendar.getInstance()
-        val currentDate = CalldataEncoder.encodeDateAsHex(
+        val currentDate = CalldataEncoder.encodeDateAsAsciiBytes(
             cal.get(Calendar.YEAR),
             cal.get(Calendar.MONTH) + 1,
             cal.get(Calendar.DAY_OF_MONTH)
         )
 
-        // Encode votes as bitmasks
-        val votes = CalldataEncoder.encodeVoteBitmasks(selectedOptions)
+        // Encode votes: single-element bitmask array [1 << selectedOptionIndex]
+        val votes = CalldataEncoder.encodeVoteBitmasks(selectedOptions, proposalData.options.size)
 
         // Parse identity fields
         val nullifier = BigInteger(identityData.nullifierHex, 16)
@@ -188,11 +189,12 @@ class VoteSubmissionService(
     }
 
     private fun generateMockProof(): org.iranUnchained.data.models.ZkProof {
-        // Generate random proof points — VerifierMock on localhost accepts any proof
-        val rand = { java.security.SecureRandom().let { r ->
+        // Generate random proof points as decimal strings — VerifierMock accepts any proof
+        val rand = {
+            val r = java.security.SecureRandom()
             val b = ByteArray(32); r.nextBytes(b)
-            org.web3j.utils.Numeric.toHexStringNoPrefix(b)
-        }}
+            BigInteger(1, b).toString() // decimal string (CalldataEncoder uses BigInteger(str))
+        }
         val proof = org.iranUnchained.data.models.Proof(
             pi_a = listOf(rand(), rand()),
             pi_b = listOf(listOf(rand(), rand()), listOf(rand(), rand())),
@@ -228,6 +230,13 @@ class VoteSubmissionService(
             proof = zkProof.proof
         )
 
+        if (BuildConfig.IS_LOCAL_DEV) {
+            val payloadHex = org.web3j.utils.Numeric.toHexStringNoPrefix(userPayload)
+            Log.i(TAG, "Local dev: userPayload=$payloadHex")
+            Log.i(TAG, "Local dev: calldata=$calldata")
+            return submitDirectToChain(proposalData.votingContractAddress, calldata)
+        }
+
         // Submit to relayer
         val request = VoteSubmissionRequest(
             data = VoteSubmissionRequestData(
@@ -243,6 +252,38 @@ class VoteSubmissionService(
             .blockingGet()
 
         return response.data.id
+    }
+
+    /**
+     * Submit vote transaction directly to the local Hardhat chain,
+     * bypassing the relayer gateway (which requires Docker services).
+     * Uses Hardhat's well-known account #0 to send the transaction.
+     */
+    private fun submitDirectToChain(votingContractAddress: String, calldata: String): String {
+        Log.i(TAG, "Local dev: submitting tx directly to chain (bypassing relayer)")
+        Log.i(TAG, "Local dev: target=$votingContractAddress selector=${calldata.take(10)} calldataLen=${calldata.length}")
+        val web3j = apiProvider.web3
+
+        // Hardhat account #0 — well-known test private key (no real funds)
+        val credentials = Credentials.create(
+            "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+        )
+
+        val txManager = RawTransactionManager(web3j, credentials, 31337L)
+        val response = txManager.sendTransaction(
+            DefaultGasProvider.GAS_PRICE,
+            DefaultGasProvider.GAS_LIMIT,
+            votingContractAddress,
+            calldata,
+            BigInteger.ZERO
+        )
+
+        if (response.hasError()) {
+            throw RuntimeException("Transaction failed: ${response.error.message}")
+        }
+
+        Log.i(TAG, "Local dev: tx hash = ${response.transactionHash}")
+        return response.transactionHash
     }
 
     private fun getIdentityData(): IdentityData? {
