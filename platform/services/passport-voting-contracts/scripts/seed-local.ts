@@ -7,6 +7,9 @@
  * Prerequisites:
  *   1. Hardhat node running: npx hardhat node
  *   2. Contracts deployed: npx hardhat migrate --network localhost
+ *
+ * Address discovery: scans all deployed contracts to find ProposalsState
+ * by checking if they respond to lastProposalId(). No artifact files needed.
  */
 import { ethers } from "hardhat";
 
@@ -14,20 +17,11 @@ async function main() {
   const [deployer] = await ethers.getSigners();
   console.log("Seeding proposals with account:", deployer.address);
 
-  // Find the ProposalsState contract — deployed via migration
-  // Read the deployed address from the migration artifacts
-  const ProposalsState = await ethers.getContractFactory("ProposalsState", {
-    libraries: {
-      PoseidonUnit3L: await findLibraryAddress("PoseidonUnit3L"),
-    },
-  });
+  // Discover ProposalsState and BioPassportVoting by probing deployed contracts
+  const { proposalsStateAddress, bioPassportVotingAddress } = await discoverContracts();
 
-  // The ProposalsState is behind a proxy. Get its address from deployment.
-  const proposalsStateAddress = await getDeployedAddress("ProposalsState");
-  const proposalsState = ProposalsState.attach(proposalsStateAddress) as any;
-
-  // Find BioPassportVoting address
-  const bioPassportVotingAddress = await getDeployedAddress("BioPassportVoting");
+  // Attach using compiled ABI (ethers.getContractAt loads from artifacts)
+  const proposalsState = await ethers.getContractAt("ProposalsState", proposalsStateAddress);
 
   console.log(`ProposalsState: ${proposalsStateAddress}`);
   console.log(`BioPassportVoting: ${bioPassportVotingAddress}`);
@@ -135,65 +129,80 @@ async function main() {
 }
 
 /**
- * Find a deployed contract address from the migration artifacts.
- * Falls back to scanning recent deployment events.
+ * Discover deployed contracts by scanning recent transactions.
+ * Uses eth_getCode to find contracts and probes them with known selectors.
  */
-async function getDeployedAddress(contractName: string): Promise<string> {
-  // Try reading from @solarity/hardhat-migrate artifacts
-  const fs = await import("fs");
-  const path = await import("path");
+async function discoverContracts() {
+  const provider = ethers.provider;
 
-  const artifactDir = path.join(__dirname, "..", "deployed", "localhost");
-  if (fs.existsSync(artifactDir)) {
-    const files = fs.readdirSync(artifactDir);
-    for (const file of files) {
-      if (file.includes(contractName)) {
-        const data = JSON.parse(fs.readFileSync(path.join(artifactDir, file), "utf-8"));
-        if (data.address) return data.address;
+  // Get the latest block number to scan deployed contracts
+  const latestBlock = await provider.getBlockNumber();
+
+  // Collect all unique contract addresses from transaction receipts
+  const contractAddresses: string[] = [];
+  for (let i = 1; i <= latestBlock; i++) {
+    const block = await provider.getBlock(i, true);
+    if (!block || !block.transactions) continue;
+    for (const txHash of block.transactions) {
+      const receipt = await provider.getTransactionReceipt(txHash as string);
+      if (receipt && receipt.contractAddress) {
+        contractAddresses.push(receipt.contractAddress);
       }
     }
   }
 
-  // Fallback: scan the contract report markdown
-  const reportPath = path.join(__dirname, "..", "deployed", "localhost.md");
-  if (fs.existsSync(reportPath)) {
-    const report = fs.readFileSync(reportPath, "utf-8");
-    const regex = new RegExp(`\\|\\s*${contractName}\\s*\\|\\s*(0x[0-9a-fA-F]+)\\s*\\|`);
-    const match = report.match(regex);
-    if (match) return match[1];
-  }
+  console.log(`Found ${contractAddresses.length} deployed contracts, probing...`);
 
-  throw new Error(`Could not find deployed address for ${contractName}. Run 'npx hardhat migrate --network localhost' first.`);
-}
+  // Find ALL contracts that respond to lastProposalId() (both implementation and proxy)
+  const proposalsStateAbi = [
+    "function lastProposalId() view returns (uint256)",
+    "function getProposalInfo(uint256) view returns (tuple(uint8 status, tuple(uint256 startTimestamp, uint256 duration, uint256 multichoice, uint256[] acceptedOptions, string description, address[] votingWhitelist, bytes[] votingWhitelistData) config, tuple(uint256 proposalSMT) proposalSMT, uint256[][] votingResults))",
+    "function createProposal(tuple(uint256 startTimestamp, uint256 duration, uint256 multichoice, uint256[] acceptedOptions, string description, address[] votingWhitelist, bytes[] votingWhitelistData))",
+  ];
 
-/**
- * Find the deployed PoseidonUnit library address.
- */
-async function findLibraryAddress(libName: string): Promise<string> {
-  const fs = await import("fs");
-  const path = await import("path");
-
-  const artifactDir = path.join(__dirname, "..", "deployed", "localhost");
-  if (fs.existsSync(artifactDir)) {
-    const files = fs.readdirSync(artifactDir);
-    for (const file of files) {
-      if (file.includes(libName) || file.includes("Poseidon")) {
-        const data = JSON.parse(fs.readFileSync(path.join(artifactDir, file), "utf-8"));
-        if (data.address) return data.address;
-      }
+  const proposalsStateCandidates: string[] = [];
+  for (const addr of contractAddresses) {
+    try {
+      const contract = new ethers.Contract(addr, proposalsStateAbi, (await ethers.getSigners())[0]);
+      await contract.lastProposalId();
+      proposalsStateCandidates.push(addr);
+      console.log(`  ProposalsState candidate: ${addr}`);
+    } catch {
+      // Not ProposalsState, continue
     }
   }
 
-  // Fallback: search report
-  const reportPath = path.join(__dirname, "..", "deployed", "localhost.md");
-  if (fs.existsSync(reportPath)) {
-    const report = fs.readFileSync(reportPath, "utf-8");
-    const regex = new RegExp(`\\|\\s*${libName}\\s*\\|\\s*(0x[0-9a-fA-F]+)\\s*\\|`);
-    const match = report.match(regex);
-    if (match) return match[1];
+  if (proposalsStateCandidates.length === 0) {
+    throw new Error("Could not find ProposalsState contract. Run 'npx hardhat migrate --network localhost' first.");
   }
 
-  throw new Error(`Could not find deployed address for library ${libName}.`);
+  // Find BioPassportVoting by matching proposalsState() to any candidate
+  let bioPassportVotingAddress = "";
+  let matchedProposalsStateAddress = "";
+  const votingAbi = ["function proposalsState() view returns (address)"];
+
+  for (const addr of contractAddresses) {
+    try {
+      const contract = new ethers.Contract(addr, votingAbi, provider);
+      const psAddr = await contract.proposalsState();
+      const psAddrLower = psAddr.toLowerCase();
+      if (proposalsStateCandidates.some(c => c.toLowerCase() === psAddrLower)) {
+        bioPassportVotingAddress = addr;
+        matchedProposalsStateAddress = psAddr;
+        console.log(`  BioPassportVoting found at: ${addr}`);
+        console.log(`  Matched ProposalsState at: ${psAddr}`);
+        break;
+      }
+    } catch {
+      // Not BioPassportVoting, continue
+    }
+  }
+
+  if (!bioPassportVotingAddress) {
+    throw new Error("Could not find BioPassportVoting contract.");
+  }
+
+  return { proposalsStateAddress: matchedProposalsStateAddress, bioPassportVotingAddress };
 }
 
 main()
