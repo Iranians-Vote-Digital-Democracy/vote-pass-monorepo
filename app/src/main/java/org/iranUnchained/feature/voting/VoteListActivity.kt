@@ -77,6 +77,7 @@ class VoteListActivity : BaseActivity() {
                 proposalListEnded = ended
                 voteList = active.map { it.toVotingData() }
                 voteListEnded = ended.map { it.toVotingData() }
+                voteAdapter.proposalDataList = active
                 voteAdapter.addAll(voteList)
 
             }, {
@@ -133,6 +134,7 @@ class VoteListActivity : BaseActivity() {
             if (isChecked) {
                 if (checkedId == binding.activeBtn.id) {
                     voteAdapter.clear()
+                    voteAdapter.proposalDataList = proposalList
                     voteAdapter.addAll(voteList)
                     if (voteList.isEmpty()) {
                         binding.noPollsText.visibility = View.VISIBLE
@@ -144,6 +146,7 @@ class VoteListActivity : BaseActivity() {
                     binding.completedBtn
                 } else if (checkedId == binding.completedBtn.id) {
                     voteAdapter.clear()
+                    voteAdapter.proposalDataList = proposalListEnded
                     voteAdapter.addAll(voteListEnded)
                     if (voteListEnded.isEmpty()) {
                         binding.noPollsText.visibility = View.VISIBLE

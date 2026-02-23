@@ -6,6 +6,7 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import io.noties.markwon.Markwon
 import org.iranUnchained.base.view.BaseActivity
+import org.iranUnchained.data.models.ProposalData
 import org.iranUnchained.data.models.VotingData
 import org.iranUnchained.databinding.LayoutCardManifestBinding
 import org.iranUnchained.databinding.LayoutCardVotingBinding
@@ -24,6 +25,9 @@ class VoteAdapter(
     val apiProvider: ApiProvider,
     val activity: BaseActivity
 ) : BaseAdapter<VotingData, RecyclerView.ViewHolder>() {
+
+    /** Parallel list of ProposalData corresponding to items in the adapter */
+    var proposalDataList: List<ProposalData> = emptyList()
 
     private val manifestType = 1
     private val voteType = 2
@@ -104,8 +108,10 @@ class VoteAdapter(
                     return
                 }
             }
-            navigator.openVotePage(data)
-
+            // Look up the original ProposalData so VoteOptionsActivity can show dynamic options
+            val pos = bindingAdapterPosition
+            val proposalData = if (pos in proposalDataList.indices) proposalDataList[pos] else null
+            navigator.openVotePage(data, proposalData)
         }
 
         fun bind(voteData: VotingData) {
