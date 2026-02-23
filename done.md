@@ -161,3 +161,55 @@
 - Boundary conditions (8): empty/single-entry whitelist, max choice multichoice, power-of-2 single-select, non-power-of-2 reject, MAX+1 reject, minimum choice, exact start time
 - Edge cases (4): single option, separate proposals, same nullifier different proposals, multichoice tally
 - Commit: `837a126`
+
+### Local E2E Testing & Prod Readiness (feature/local-e2e-testing)
+
+**Phase 0: Endpoint Documentation**
+- Created `docs/ENDPOINTS.md` with all Rarimo/FreedomTool endpoints, curl health checks, current status
+- All `*.iran.freedomtool.org` services DOWN (timeout); only `rpc.evm.mainnet.rarimo.com` working
+- Parent repo commit: `248a95c`
+
+**Phase 1: Dev/Prod Config Separation**
+- Added `prod`/`local` product flavors with `IS_LOCAL_DEV` BuildConfig flag to `build.gradle.kts`
+- Created `ActiveConfig` runtime selector in `BaseConfig.kt` (delegates to BaseConfig or LocalDev)
+- Converted `CircuitBackendApi` from hardcoded `@POST`/`@GET` annotations to `@Url` parameter pattern
+- Replaced `BaseConfig.` references with `ActiveConfig.` in 9 files
+- Hidden export button in prod builds (`VoteListActivity.kt`, `activity_vote_list.xml`)
+- Android repo commit: `0847bf5`
+
+**Phase 2: Local Contract Deployment & Proposal Seeding**
+- Updated `2_voting.migration.ts` to deploy `RegistrationSMTMock` + `VerifierMock` on localhost/hardhat
+- Created `scripts/seed-local.ts` with 3 test proposals (2 active, 1 ended)
+- Added `seed:local` npm script to `package.json`
+- Parent repo commit: `69a7ba1`
+
+**Phase 3: VoteAdapter ProposalData Passthrough + Dynamic Options**
+- Added `proposalDataList` to `VoteAdapter`, lookup by position in `onClickAllowed()`
+- Updated `VoteListActivity` to pass proposalDataList on data load and tab switches
+- Extended `Navigator.kt` to pass ProposalData through `openVotePage()`, `openOptionVoting()`, `openVoteProcessing()`
+- Updated `VotePageActivity` and `VoteProcessingActivity` to receive and forward ProposalData
+- `VoteOptionsActivity`: dynamic option rendering from ProposalData (buttons, results, percentages)
+- Added `option_container` LinearLayout to `activity_vote_options.xml`
+- `VoteProcessingActivity`: uses `VoteSubmissionService` for on-chain vote submission
+- Android repo commits: `3a6b913`, `8e1e878`, `c4a443c`
+
+**Phase 4: Pre-Seed Identity for Local Voting**
+- Created `LocalDevSeeder.kt` utility (random nullifier/secret/secretKey, sets isPassportScanned=true)
+- Integrated into `VoteListActivity` (auto-seeds on first launch when IS_LOCAL_DEV)
+- Added mock proof generation in `VoteSubmissionService` (random Groth16 proof points for VerifierMock)
+- Android repo commit: `eb17c75`
+
+**Phase 5: Android JVM Unit Tests**
+- Extracted `ProposalParser.kt` (parseDescription, parseVotingWhitelistData) from ProposalProvider
+- Extracted `VoteSMTInputsBuilder.kt` (buildJson) from VoteSubmissionService
+- Updated ProposalProvider and VoteSubmissionService to delegate to extracted utilities
+- Created 3 new test files: VoteSMTInputsTest (9 tests), ProposalParserTest (8 tests), IdentityDataTest (4 tests)
+- Committed existing test files (CalldataEncoderTest, ProposalDataTest, VoteEligibilityTest, VoteBitmaskTest)
+- All tests pass across all 4 build variants (localDebug/Release, prodDebug/Release)
+- Android repo commit: `9180d7c`
+
+**Phase 6: Local E2E Orchestration Script**
+- Created `platform/scripts/local-e2e.sh` — orchestrates full local stack
+- Steps: Hardhat node → contract deploy → proposal seed → Docker services
+- Supports `--skip-docker` (contracts only) and `--stop` (teardown)
+- Parent repo commit: `2a80968`

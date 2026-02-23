@@ -2,17 +2,15 @@
 
 ## In Progress
 
-### ICAO Certificate Chain Verification (feature/passport-security-chain-tests)
-- [x] Download ICAO Master List (December 2025, 536 CSCAs)
-- [x] Parse ML, extract 7 US CSCA certificates
-- [x] Match DS cert to CSCA via signature verification (serial 4E32D006)
-- [x] Create `cert-chain-verifier.ts` helper (DS→CSCA, ICAO tree, Cert SMT)
-- [x] Add 15 new integration tests (3 blocks + 1 full chain test)
-- [x] All 39 integration tests pass, all 28 existing tests pass
-- [x] Commit: `449faef`
-- [x] Verify ICAO ML CMS signature (UN CSCA → ML Signer → ML content)
-- [x] All 46 integration tests pass, all 28 existing tests pass
-- [x] Commit: `0a417d5`
+### Local E2E Testing & Prod Readiness (feature/local-e2e-testing)
+- [x] Phase 0: ENDPOINTS.md documentation — `248a95c`
+- [x] Phase 1: Dev/prod build flavors + ActiveConfig — `0847bf5` (android)
+- [x] Phase 2: Mock contract deployment + proposal seeding — `69a7ba1`
+- [x] Phase 3: VoteAdapter ProposalData passthrough + dynamic options — `3a6b913`, `c4a443c` (android)
+- [x] Phase 4: Pre-seed identity + mock proof for local dev — `eb17c75` (android)
+- [x] Phase 5: Extract pure functions + JVM unit tests (21 new) — `9180d7c` (android)
+- [x] Phase 6: Local E2E orchestration script — `2a80968`
+- [ ] Phase 7: Self-host identity-provider-service (follow-up)
 
 ## Completed
 
