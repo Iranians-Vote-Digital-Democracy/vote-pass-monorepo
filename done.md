@@ -121,9 +121,18 @@
   - Block 1c — ICAO Master Tree (4): tree construction, proof generation, different roots for different sets, non-member rejection
   - Block 1d — Certificate SMT (4): certificateKey computation, match with circuit slaveMerkleRoot, match with ZK proof output [4], different keys for different certs
   - Full chain test (1): ICAO → CSCA → DS → SOD → DG1 → certificatesRoot end-to-end
-- Trust chain coverage: ICAO ML ✅ → CSCA ✅ → DS cert ✅ → SOD ✅ → DG1 ✅ → ZK proof ✅ → on-chain ✅
-- All 39 integration tests pass; all 28 existing BioPassportVoting tests pass
-- Commit: `449faef`
+- Added ICAO Master List CMS signature verification:
+  - `verifyICAOMLAuthenticity()`: verifies CMS signature, ML Signer cert chain, UN CSCA self-signature, validity periods, CSCA count
+  - `extractICAOMLCertificates()`: extracts ML Signer and UN CSCA certs from CMS envelope
+  - `hasICAOMasterList()` / `getICAOMasterListPath()`: fixture helpers
+  - Extracted `icao-ml-signer.pem` (ICAO ML Signer, serial 6539D4BE, valid Jun 2025 → Sep 2026)
+  - Extracted `un-csca.pem` (UN CSCA, serial 5996E258, self-signed, valid Jun 2022 → Jun 2032)
+- Expanded `PassportIntegration.test.ts` from 39 to 46 tests (new Block 1a):
+  - Block 1a — ICAO ML Authenticity (7 new): CMS signature, ML Signer→UN CSCA chain, UN CSCA self-signed, validity periods, issuer identity, CSCA count, cert extraction
+  - Updated full chain test to include ML authenticity verification
+- Trust chain coverage: UN CSCA ✅ → ML Signer ✅ → ML content ✅ → CSCA certs ✅ → DS cert ✅ → SOD ✅ → DG1 ✅ → ZK proof ✅ → on-chain ✅
+- All 46 integration tests pass; all 28 existing BioPassportVoting tests pass
+- Commits: `449faef`, `0a417d5`
 
 ### Test Quality Rewrite (fix/comprehensive-tests)
 - Rewrote BioPassportVoting.test.ts per TESTING_GUIDE.md (Moloch testing philosophy)

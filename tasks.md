@@ -10,6 +10,9 @@
 - [x] Add 15 new integration tests (3 blocks + 1 full chain test)
 - [x] All 39 integration tests pass, all 28 existing tests pass
 - [x] Commit: `449faef`
+- [x] Verify ICAO ML CMS signature (UN CSCA → ML Signer → ML content)
+- [x] All 46 integration tests pass, all 28 existing tests pass
+- [x] Commit: `0a417d5`
 
 ## Completed
 
