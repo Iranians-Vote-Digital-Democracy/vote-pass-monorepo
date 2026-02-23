@@ -31,6 +31,9 @@ extracted_data/
 platform/services/passport-voting-contracts/test/fixtures/*.json
 platform/services/passport-voting-contracts/test/fixtures/*.hex
 
+# ICAO Master List derived files (regeneratable from .ml source)
+platform/services/passport-voting-contracts/test/fixtures/icao/master_list_content.der
+
 # Per-passport circuit artifacts (large, downloadable from rarimo releases)
 platform/services/passport-contracts/assets/registerIdentity_*.dev.zip
 platform/services/passport-contracts/assets/registerIdentity_*.dev/

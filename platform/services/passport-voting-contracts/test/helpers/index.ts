@@ -7,3 +7,4 @@ export * from "./registration-proof-generator";
 export * from "./sod-verifier";
 export * from "./dg1-parser";
 export * from "./per-passport-proof-generator";
+export * from "./cert-chain-verifier";

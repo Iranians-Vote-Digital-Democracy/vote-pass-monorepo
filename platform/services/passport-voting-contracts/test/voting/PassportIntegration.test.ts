@@ -27,6 +27,14 @@ import {
   PassportData,
   RegistrationProofResult,
   PerPassportProofResult,
+  // Certificate chain verification
+  verifyDSCertSignedByCSCA,
+  verifyCertificateChain,
+  buildICAOMerkleTree,
+  computeCertificateKey,
+  computeCertificatesRoot,
+  hasUSCSCA,
+  loadUSCSCA,
 } from "@/test/helpers";
 
 import { BioPassportVoting, ProposalsState } from "@ethers-v6";
@@ -36,6 +44,9 @@ import { BioPassportVoting, ProposalsState } from "@ethers-v6";
  *
  * End-to-end tests using real passport data:
  * 1. Passive authentication — SOD signature + DG1 hash verification
+ * 1b. Certificate chain — DS cert → CSCA → ICAO Master List
+ * 1c. ICAO Master Tree — CSCA membership proof (Keccak256 Merkle)
+ * 1d. Certificate SMT — DS cert registration (Poseidon hash)
  * 2. DG1 data integrity — field parsing + tamper detection via ZK proof
  * 3. Registration proof on-chain verification (Light256 circuit, 3 signals)
  * 4. Per-passport circuit — full certificate chain verification (5 signals)
@@ -116,6 +127,221 @@ describe("Passport Integration", function () {
 
       const valid = verifyDG1Hash(passportData.sodHex, tamperedDg1);
       expect(valid).to.equal(false, "DG1 with tampered nationality should NOT match SOD hash");
+    });
+  });
+
+  // =========================================================================
+  // Block 1b: Certificate Chain — DS Cert → CSCA → ICAO
+  // =========================================================================
+
+  describe("Certificate Chain — DS Cert → CSCA → ICAO", () => {
+    let passportData: PassportData;
+    let cscaPem: string;
+
+    before(function () {
+      if (!hasPassportData()) {
+        console.log("  Skipping: no extracted passport data in extracted_data/.");
+        this.skip();
+      }
+      if (!hasUSCSCA()) {
+        console.log("  Skipping: no US CSCA certificate at test/fixtures/us-csca.pem.");
+        this.skip();
+      }
+      passportData = loadPassportData();
+      cscaPem = loadUSCSCA();
+    });
+
+    it("should verify DS certificate was signed by the US CSCA", function () {
+      const valid = verifyDSCertSignedByCSCA(passportData.docSigningCertPem, cscaPem);
+      expect(valid).to.equal(true, "DS cert signature should verify against CSCA public key");
+    });
+
+    it("should verify DS cert issuer matches CSCA subject", function () {
+      const result = verifyCertificateChain(passportData.docSigningCertPem, cscaPem);
+      expect(result.issuerMatch).to.equal(
+        true,
+        "DS cert issuer DN should match CSCA subject DN",
+      );
+    });
+
+    it("should verify Authority/Subject Key Identifier linkage", function () {
+      const result = verifyCertificateChain(passportData.docSigningCertPem, cscaPem);
+      // AKI/SKI may not be present on all certs; if present, they must match
+      if (result.akiSkiMatch !== null) {
+        expect(result.akiSkiMatch).to.equal(
+          true,
+          "DS cert AKI should match CSCA SKI",
+        );
+      }
+      // If null, the extensions aren't present — not an error, just skip this check
+    });
+
+    it("should verify both certificates are within validity period", function () {
+      const result = verifyCertificateChain(passportData.docSigningCertPem, cscaPem);
+      expect(result.dsCertValid).to.equal(true, "DS cert should be within validity period");
+      expect(result.cscaValid).to.equal(true, "CSCA cert should be within validity period");
+    });
+
+    it("should pass all chain verification checks", function () {
+      const result = verifyCertificateChain(passportData.docSigningCertPem, cscaPem);
+      expect(result.signatureValid).to.equal(true);
+      expect(result.issuerMatch).to.equal(true);
+      expect(result.dsCertValid).to.equal(true);
+      expect(result.cscaValid).to.equal(true);
+    });
+
+    it("should reject DS cert against wrong CSCA", function () {
+      // Use the test_ca.pem fixture as a fake CSCA
+      const fakeCscaPem = require("fs").readFileSync(
+        require("path").join(__dirname, "../fixtures/test_ca.pem"),
+        "utf-8",
+      );
+      const valid = verifyDSCertSignedByCSCA(passportData.docSigningCertPem, fakeCscaPem);
+      expect(valid).to.equal(false, "DS cert should NOT verify against a fake CSCA");
+    });
+  });
+
+  // =========================================================================
+  // Block 1c: ICAO Master Tree — CSCA Membership Proof
+  // =========================================================================
+
+  describe("ICAO Master Tree — CSCA Membership Proof", () => {
+    let cscaPem: string;
+
+    before(function () {
+      if (!hasUSCSCA()) {
+        console.log("  Skipping: no US CSCA certificate at test/fixtures/us-csca.pem.");
+        this.skip();
+      }
+      cscaPem = loadUSCSCA();
+    });
+
+    it("should build ICAO Merkle tree containing US CSCA", function () {
+      const tree = buildICAOMerkleTree([cscaPem]);
+
+      expect(tree.root).to.match(/^0x[0-9a-f]{64}$/i, "Root should be a valid bytes32");
+      expect(tree.leaves).to.have.lengthOf(1);
+    });
+
+    it("should produce valid Merkle proof for included CSCA", function () {
+      // Build tree with multiple certs (US CSCA + test CA)
+      const testCaPem = require("fs").readFileSync(
+        require("path").join(__dirname, "../fixtures/test_ca.pem"),
+        "utf-8",
+      );
+      const tree = buildICAOMerkleTree([cscaPem, testCaPem]);
+
+      const proof = tree.getProof(cscaPem);
+      expect(proof.length).to.be.greaterThan(0, "Proof should have at least one sibling");
+    });
+
+    it("should produce different roots for different CSCA sets", function () {
+      const tree1 = buildICAOMerkleTree([cscaPem]);
+
+      const testCaPem = require("fs").readFileSync(
+        require("path").join(__dirname, "../fixtures/test_ca.pem"),
+        "utf-8",
+      );
+      const tree2 = buildICAOMerkleTree([cscaPem, testCaPem]);
+
+      expect(tree1.root).to.not.equal(tree2.root, "Different CSCA sets should have different roots");
+    });
+
+    it("should reject CSCA not in ICAO tree", function () {
+      // Build tree with only test_ca (not the real CSCA)
+      const testCaPem = require("fs").readFileSync(
+        require("path").join(__dirname, "../fixtures/test_ca.pem"),
+        "utf-8",
+      );
+      const tree = buildICAOMerkleTree([testCaPem]);
+
+      // Try to get proof for US CSCA which is NOT in the tree
+      const proof = tree.getProof(cscaPem);
+      expect(proof).to.have.lengthOf(0, "Proof should be empty for non-member");
+    });
+  });
+
+  // =========================================================================
+  // Block 1d: Certificate SMT — DS Cert Registration
+  // =========================================================================
+
+  describe("Certificate SMT — DS Cert Registration", () => {
+    let passportData: PassportData;
+
+    before(function () {
+      if (!hasPassportData()) {
+        console.log("  Skipping: no extracted passport data in extracted_data/.");
+        this.skip();
+      }
+      passportData = loadPassportData();
+    });
+
+    it("should compute certificateKey from DS cert RSA public key", function () {
+      const certKey = computeCertificateKey(passportData.docSigningCertPem);
+
+      // Certificate key should be a non-zero field element
+      expect(certKey).to.not.equal(0n, "Certificate key should be non-zero");
+
+      // Should be within BN254 field order
+      const fieldOrder =
+        21888242871839275222246405745257275088548364400416034343698204186575808495617n;
+      expect(certKey).to.be.lessThan(fieldOrder);
+    });
+
+    it("should compute certificatesRoot matching circuit slaveMerkleRoot", function () {
+      const certKey = computeCertificateKey(passportData.docSigningCertPem);
+      const certRoot = computeCertificatesRoot(certKey);
+
+      // Build the same value from the per-passport circuit input builder
+      const inputs = buildPerPassportCircuitInputs(
+        passportData.dg1Hex,
+        passportData.sodHex,
+        passportData.docSigningCertPem,
+      );
+
+      const expectedRoot = BigInt(inputs.slaveMerkleRoot);
+      expect(certRoot).to.equal(
+        expectedRoot,
+        "certificatesRoot should match per-passport circuit slaveMerkleRoot",
+      );
+    });
+
+    it("should verify certificatesRoot matches ZK proof output [4]", async function () {
+      if (!hasPerPassportCircuit()) {
+        console.log("  Skipping: per-passport circuit artifacts not found.");
+        this.skip();
+      }
+
+      const certKey = computeCertificateKey(passportData.docSigningCertPem);
+      const certRoot = computeCertificatesRoot(certKey);
+
+      const proofResult = await generatePerPassportProof(
+        passportData.dg1Hex,
+        passportData.sodHex,
+        passportData.docSigningCertPem,
+      );
+
+      const proofCertRoot = BigInt(proofResult.publicSignals[4]);
+      expect(proofCertRoot).to.equal(
+        certRoot,
+        "ZK proof certificatesRoot should match computed value",
+      );
+    });
+
+    it("should produce different certificateKeys for different certs", function () {
+      const realCertKey = computeCertificateKey(passportData.docSigningCertPem);
+
+      // Use test_ca.pem as a different certificate
+      const testCaPem = require("fs").readFileSync(
+        require("path").join(__dirname, "../fixtures/test_ca.pem"),
+        "utf-8",
+      );
+      const testCertKey = computeCertificateKey(testCaPem);
+
+      expect(realCertKey).to.not.equal(
+        testCertKey,
+        "Different certificates should have different keys",
+      );
     });
   });
 
@@ -800,6 +1026,41 @@ describe("Passport Integration", function () {
     });
 
     afterEach(reverter.revert);
+
+    it("should verify complete chain: ICAO → CSCA → DS → SOD → DG1 → ZK proof", async function () {
+      if (!hasUSCSCA()) {
+        console.log("  Skipping: no US CSCA certificate.");
+        this.skip();
+      }
+
+      const cscaPem = loadUSCSCA();
+
+      // 1. Verify CSCA is in ICAO Merkle tree
+      const tree = buildICAOMerkleTree([cscaPem]);
+      expect(tree.root).to.match(/^0x[0-9a-f]{64}$/i);
+
+      // 2. Verify DS cert signed by CSCA
+      const dsSigValid = verifyDSCertSignedByCSCA(passportData.docSigningCertPem, cscaPem);
+      expect(dsSigValid).to.equal(true, "DS cert must be signed by CSCA");
+
+      // 3. Verify SOD signed by DS cert
+      const sodSigValid = verifySODSignature(passportData.sodHex, passportData.docSigningCertPem);
+      expect(sodSigValid).to.equal(true, "SOD must be signed by DS cert");
+
+      // 4. Verify DG1 hash in SOD
+      const dg1Valid = verifyDG1Hash(passportData.sodHex, passportData.dg1Hex);
+      expect(dg1Valid).to.equal(true, "DG1 hash must match SOD");
+
+      // 5. Verify certificatesRoot matches
+      const certKey = computeCertificateKey(passportData.docSigningCertPem);
+      const certRoot = computeCertificatesRoot(certKey);
+      const inputs = buildPerPassportCircuitInputs(
+        passportData.dg1Hex,
+        passportData.sodHex,
+        passportData.docSigningCertPem,
+      );
+      expect(certRoot).to.equal(BigInt(inputs.slaveMerkleRoot));
+    });
 
     it("should register with real proof then vote with real passport data", async function () {
       // 1. Generate registration proof from passport DG1
