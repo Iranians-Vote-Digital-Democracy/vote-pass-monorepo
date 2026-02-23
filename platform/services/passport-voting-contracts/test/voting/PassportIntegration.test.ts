@@ -20,8 +20,13 @@ import {
   parseDG1Fields,
   tamperDG1Byte,
   tamperDG1Field,
+  hasPerPassportCircuit,
+  generatePerPassportProof,
+  verifyPerPassportProofOffchain,
+  buildPerPassportCircuitInputs,
   PassportData,
   RegistrationProofResult,
+  PerPassportProofResult,
 } from "@/test/helpers";
 
 import { BioPassportVoting, ProposalsState } from "@ethers-v6";
@@ -32,9 +37,10 @@ import { BioPassportVoting, ProposalsState } from "@ethers-v6";
  * End-to-end tests using real passport data:
  * 1. Passive authentication — SOD signature + DG1 hash verification
  * 2. DG1 data integrity — field parsing + tamper detection via ZK proof
- * 3. Registration proof on-chain verification
- * 4. Voting with real passport attributes — citizenship, dates flow through contract logic
- * 5. Full stack — registration proof + voting in one flow
+ * 3. Registration proof on-chain verification (Light256 circuit, 3 signals)
+ * 4. Per-passport circuit — full certificate chain verification (5 signals)
+ * 5. Voting with real passport attributes — citizenship, dates flow through contract logic
+ * 6. Full stack — registration proof + voting in one flow
  *
  * Skips gracefully if no extracted passport data or circuit artifacts exist.
  */
@@ -318,8 +324,145 @@ describe("Passport Integration", function () {
   });
 
   // =========================================================================
-  // Block 4: Voting with Real Passport Data
+  // Block 4: Per-Passport Circuit — Full Certificate Chain Verification
   // =========================================================================
+
+  describe("Per-Passport Circuit — Full Certificate Chain Verification", () => {
+    let passportData: PassportData;
+    let proofResult: PerPassportProofResult;
+
+    before(function () {
+      if (!hasPassportData()) {
+        console.log("  Skipping: no extracted passport data in extracted_data/.");
+        this.skip();
+      }
+      if (!hasPerPassportCircuit()) {
+        console.log("  Skipping: per-passport circuit artifacts not found.");
+        this.skip();
+      }
+      passportData = loadPassportData();
+    });
+
+    it("should build correct circuit inputs from passport data", function () {
+      const inputs = buildPerPassportCircuitInputs(
+        passportData.dg1Hex,
+        passportData.sodHex,
+        passportData.docSigningCertPem,
+      );
+
+      expect(inputs.dg1).to.have.lengthOf(1024);
+      expect(inputs.encapsulatedContent).to.have.lengthOf(1536); // 3 blocks × 512 bits
+      expect(inputs.signedAttributes).to.have.lengthOf(1024);    // 2 blocks × 512 bits
+      expect(inputs.pubkey).to.have.lengthOf(32);                 // RSA 2048 / 64 bits
+      expect(inputs.signature).to.have.lengthOf(32);
+      expect(inputs.slaveMerkleInclusionBranches).to.have.lengthOf(80);
+
+      // Total must match circuit's expected input count
+      const total = inputs.dg1.length + 1 + inputs.encapsulatedContent.length +
+        inputs.signedAttributes.length + inputs.pubkey.length + inputs.signature.length +
+        1 + inputs.slaveMerkleInclusionBranches.length;
+      expect(total).to.equal(3730, "Total input signals must be 3730");
+    });
+
+    it("should generate a valid per-passport proof with 5 public signals", async function () {
+      proofResult = await generatePerPassportProof(
+        passportData.dg1Hex,
+        passportData.sodHex,
+        passportData.docSigningCertPem,
+      );
+
+      // 5 public signals: dg15PubKeyHash, passportHash, dgCommit, identityKey, certificatesRoot
+      expect(proofResult.publicSignals).to.have.lengthOf(5);
+
+      // Signal [0] = dg15PubKeyHash should be 0 (no Active Authentication)
+      expect(proofResult.publicSignals[0]).to.equal(
+        "0",
+        "dg15PubKeyHash should be 0 for passports without Active Authentication",
+      );
+
+      // Remaining signals should be non-zero
+      for (let i = 1; i < 5; i++) {
+        expect(BigInt(proofResult.publicSignals[i])).to.not.equal(
+          0n,
+          `Public signal [${i}] should be non-zero`,
+        );
+      }
+
+      // Off-chain verification
+      const valid = await verifyPerPassportProofOffchain(proofResult.proof, proofResult.publicSignals);
+      expect(valid).to.equal(true, "Per-passport proof should verify off-chain");
+    });
+
+    it("should verify the per-passport proof on-chain via PerPassportVerifier", async function () {
+      if (!proofResult) {
+        proofResult = await generatePerPassportProof(
+          passportData.dg1Hex,
+          passportData.sodHex,
+          passportData.docSigningCertPem,
+        );
+      }
+
+      const Verifier = await ethers.getContractFactory("PerPassportVerifier");
+      const verifier = await Verifier.deploy();
+
+      const pp = registrationProofToProofPoints(proofResult.proof);
+      const pubSignals = proofResult.publicSignals.map((s: string) => BigInt(s));
+
+      const result = await verifier.verifyProof(pp.a, pp.b, pp.c, pubSignals);
+      expect(result).to.equal(true, "On-chain verifier should accept real per-passport proof");
+    });
+
+    it("should reject a tampered per-passport proof on-chain", async function () {
+      if (!proofResult) {
+        proofResult = await generatePerPassportProof(
+          passportData.dg1Hex,
+          passportData.sodHex,
+          passportData.docSigningCertPem,
+        );
+      }
+
+      const Verifier = await ethers.getContractFactory("PerPassportVerifier");
+      const verifier = await Verifier.deploy();
+
+      const pp = registrationProofToProofPoints(proofResult.proof);
+      const pubSignals = proofResult.publicSignals.map((s: string) => BigInt(s));
+
+      // Tamper with pi_a[0]
+      const tamperedA: [string, string] = [
+        (BigInt(pp.a[0]) + 1n).toString(),
+        pp.a[1],
+      ];
+
+      const result = await verifier.verifyProof(tamperedA, pp.b, pp.c, pubSignals);
+      expect(result).to.equal(false, "Tampered proof should be rejected");
+    });
+
+    it("should produce consistent certificatesRoot (signal [4]) matching slaveMerkleRoot", async function () {
+      if (!proofResult) {
+        proofResult = await generatePerPassportProof(
+          passportData.dg1Hex,
+          passportData.sodHex,
+          passportData.docSigningCertPem,
+        );
+      }
+
+      const inputs = buildPerPassportCircuitInputs(
+        passportData.dg1Hex,
+        passportData.sodHex,
+        passportData.docSigningCertPem,
+      );
+
+      // certificatesRoot (signal [4]) should match the slaveMerkleRoot input
+      const expectedRoot = BigInt(inputs.slaveMerkleRoot);
+      const actualRoot = BigInt(proofResult.publicSignals[4]);
+      expect(actualRoot).to.equal(
+        expectedRoot,
+        "certificatesRoot output should match slaveMerkleRoot input",
+      );
+    });
+  });
+
+  // Block 5 numbering kept as-is for consistency
 
   describe("Voting with Real Passport Data", () => {
     const reverter = new Reverter();

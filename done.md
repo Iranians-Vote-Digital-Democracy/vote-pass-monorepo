@@ -86,6 +86,23 @@
 - All 19 integration tests pass; all 28 existing BioPassportVoting tests pass
 - Commit: `7c6821d`
 
+### Per-Passport Circuit Testing (feature/per-passport-circuit-tests)
+- Downloaded `registerIdentity_1_256_3_3_576_248_NA.dev.zip` (244 MB) from rarimo releases v0.2.4
+- Unzipped circuit artifacts: WASM (5.5 MB), zkey (387 MB), vkey, verifier.sol
+- Discovered all 3730 circuit input signals by probing WASM binary:
+  - `dg1[1024]`, `skIdentity`, `encapsulatedContent[1536]`, `signedAttributes[1024]`
+  - `pubkey[32]`, `signature[32]`, `slaveMerkleRoot`, `slaveMerkleInclusionBranches[80]`
+- Created `per-passport-proof-generator.ts` helper:
+  - `buildPerPassportCircuitInputs()`: extracts SOD encapsulated content, signed attributes, RSA pubkey/signature from passport data; applies SHA-256 padding; computes Poseidon slaveMerkleRoot
+  - `generatePerPassportProof()`: generates Groth16 proof via snarkjs (5 public signals, ~11s)
+  - `verifyPerPassportProofOffchain()`: off-chain proof verification using vkey.json
+  - `hasPerPassportCircuit()`: checks if circuit artifacts are available
+- Created `PerPassportVerifier.sol` mock contract (5 public signals, from circuit verifier.sol)
+- Expanded `PassportIntegration.test.ts` from 19 to 24 tests (new Block 4):
+  - Block 4 — Per-Passport Circuit (5 new): input building validation, proof generation with 5 signals, on-chain verification via PerPassportVerifier, tamper rejection, certificatesRoot consistency check
+- 5 public outputs confirmed: `[0]` dg15PubKeyHash (0 for no AA), `[1]` passportHash, `[2]` dgCommit, `[3]` identityKey, `[4]` certificatesRoot
+- All 24 integration tests pass; all 28 existing BioPassportVoting tests pass
+
 ### Test Quality Rewrite (fix/comprehensive-tests)
 - Rewrote BioPassportVoting.test.ts per TESTING_GUIDE.md (Moloch testing philosophy)
 - 28 tests: DRY helpers, verification functions, full require coverage

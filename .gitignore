@@ -31,6 +31,10 @@ extracted_data/
 platform/services/passport-voting-contracts/test/fixtures/*.json
 platform/services/passport-voting-contracts/test/fixtures/*.hex
 
+# Per-passport circuit artifacts (large, downloadable from rarimo releases)
+platform/services/passport-contracts/assets/registerIdentity_*.dev.zip
+platform/services/passport-contracts/assets/registerIdentity_*.dev/
+
 # Hardhat
 platform/services/passport-voting-contracts/artifacts/
 platform/services/passport-voting-contracts/cache/
