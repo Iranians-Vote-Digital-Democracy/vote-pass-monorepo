@@ -37,10 +37,6 @@
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
-            android:name="org.iranUnchained.feature.voting.SignedManifest"
-            android:exported="false"
-            android:screenOrientation="portrait" />
-        <activity
             android:name="org.iranUnchained.feature.voting.MustVerifyActivity"
             android:exported="false"
             android:screenOrientation="portrait" />

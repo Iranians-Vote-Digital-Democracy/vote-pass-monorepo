@@ -22,7 +22,6 @@ import org.iranUnchained.feature.security.CreateCredentialActivity
 import org.iranUnchained.feature.security.CreatePinCodeActivity
 import org.iranUnchained.feature.voting.ManifestSigning
 import org.iranUnchained.feature.voting.MustVerifyActivity
-import org.iranUnchained.feature.voting.SignedManifest
 import org.iranUnchained.feature.voting.VoteListActivity
 import org.iranUnchained.feature.voting.VoteOptionsActivity
 import org.iranUnchained.feature.voting.VotePageActivity
@@ -171,9 +170,7 @@ class Navigator private constructor() {
     }
 
     fun openSignedManifest(voteData: VotingData) {
-        val intent = Intent(context, SignedManifest::class.java)
-        intent.putExtra(SignedManifest.VOTE_DATA, voteData)
-        performIntent(intent)
+        openOptionVoting(voteData)
     }
 
     fun openStart() {

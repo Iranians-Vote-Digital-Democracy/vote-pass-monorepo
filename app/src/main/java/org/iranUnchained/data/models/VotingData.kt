@@ -35,11 +35,16 @@ data class RequirementsForVoting(
             return null
 
         val nationalityStrings = nationality.map { getIssuingAuthorityString(it.toLong()) }
+            .filter { it.isNotBlank() }
+        if (nationalityStrings.isEmpty())
+            return null
+
         return nationalityStrings.joinToString(", ")
     }
 
     fun isInList(userNationality: String): Boolean {
         val nationalityStrings = nationality.map { getIssuingAuthorityString(it.toLong()) }
+            .filter { it.isNotBlank() }
         return userNationality in nationalityStrings
     }
 }

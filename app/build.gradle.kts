@@ -43,6 +43,8 @@ android {
             dimension = "environment"
             applicationIdSuffix = ".local"
             buildConfigField("boolean", "IS_LOCAL_DEV", "true")
+            // Set to false to require real passport scan instead of auto-seeding mock identity
+            buildConfigField("boolean", "SEED_MOCK_IDENTITY", "false")
         }
     }
 

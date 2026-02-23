@@ -54,7 +54,13 @@ class VotePageActivity : BaseActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (SecureSharedPrefs.getVoteResult(this) > -1) {
+        val voted = if (proposalData != null) {
+            SecureSharedPrefs.getVoteResult(this, proposalData!!.proposalId) > -1
+        } else {
+            @Suppress("DEPRECATION")
+            SecureSharedPrefs.getVoteResult(this) > -1
+        }
+        if (voted) {
             setVoted()
         }
     }
@@ -104,7 +110,13 @@ class VotePageActivity : BaseActivity() {
             }
         }
 
-        if (SecureSharedPrefs.getVoteResult(this) != -1) {
+        val hasVoted = if (proposalData != null) {
+            SecureSharedPrefs.getVoteResult(this, proposalData!!.proposalId) != -1
+        } else {
+            @Suppress("DEPRECATION")
+            SecureSharedPrefs.getVoteResult(this) != -1
+        }
+        if (hasVoted) {
             setVoted()
         }
 

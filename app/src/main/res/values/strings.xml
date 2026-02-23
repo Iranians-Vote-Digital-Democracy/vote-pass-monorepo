@@ -116,7 +116,7 @@
         <item quantity="many">%1$d people already signed</item>
         <item quantity="other">%1$d people already signed</item>
     </plurals>
-    <string name="view_petition">View Petition</string>
+    <string name="view_petition">View Results</string>
     <string name="you_and_x_other_people_already_signed">You and %1$s other people already signed</string>
     <string name="you_already_registered">You\'ve already signed it</string>
     <string name="cant_verify_multiple_device">You cannot be verified on multiple devices</string>

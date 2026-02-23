@@ -32,10 +32,15 @@ class VoteOptionsActivity : BaseActivity() {
         )
         binding.lifecycleOwner = this
 
-        val selectedOptionSc = SecureSharedPrefs.getVoteResult(this)
-
         votingData = intent?.getParcelableExtra(VOTING_DATA)!!
         proposalData = intent?.getParcelableExtra(PROPOSAL_DATA)
+
+        val selectedOptionSc = if (proposalData != null) {
+            SecureSharedPrefs.getVoteResult(this, proposalData!!.proposalId)
+        } else {
+            @Suppress("DEPRECATION")
+            SecureSharedPrefs.getVoteResult(this)
+        }
 
         binding.dataOfVoting.text = resolveDays(this, votingData.dueDate!!, votingData.startDate!!, getLocale())
         binding.data = votingData
@@ -72,8 +77,8 @@ class VoteOptionsActivity : BaseActivity() {
         options.forEachIndexed { index, option ->
             val button = MaterialButton(this).apply {
                 text = option.name
-                backgroundTintList = ContextCompat.getColorStateList(this@VoteOptionsActivity, R.color.unselected_button_color)
-                setTextColor(resources.getColor(R.color.white))
+                backgroundTintList = ContextCompat.getColorStateList(this@VoteOptionsActivity, R.color.disabled_button_color)
+                setTextColor(resources.getColor(R.color.black))
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
@@ -86,6 +91,7 @@ class VoteOptionsActivity : BaseActivity() {
                     v.backgroundTintList = ContextCompat.getColorStateList(this@VoteOptionsActivity, R.color.primary_button_color)
                     selectedOption = v.tag as Int
                     binding.voteBtn.backgroundTintList = ContextCompat.getColorStateList(this@VoteOptionsActivity, R.color.primary_button_color)
+                    binding.voteBtn.setTextColor(resources.getColor(R.color.black))
                     binding.voteBtn.isEnabled = true
                 }
             }
@@ -94,7 +100,8 @@ class VoteOptionsActivity : BaseActivity() {
         }
 
         binding.voteBtn.backgroundTintList =
-            ContextCompat.getColorStateList(this, R.color.unselected_button_color)
+            ContextCompat.getColorStateList(this, R.color.disabled_button_color)
+        binding.voteBtn.setTextColor(resources.getColor(R.color.secondary_text_color))
         binding.voteBtn.isEnabled = false
 
         initDynamicVoteButton()
@@ -106,26 +113,42 @@ class VoteOptionsActivity : BaseActivity() {
         val container = binding.optionContainer
         container.removeAllViews()
 
+        val density = resources.displayMetrics.density
+        val totalVotesInt = totalVotes.toLong()
+
         proposal.options.forEachIndexed { index, option ->
+            val isSelected = index + 1 == selectedIndex
+
+            // Calculate vote counts from actual results
+            val optionVotes = if (index < proposal.votingResults.size) {
+                proposal.votingResults[index].sum()
+            } else 0L
+            val percentage = if (totalVotesInt > 0) (optionVotes * 100 / totalVotesInt).toInt() else 0
+
             val resultLayout = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 ).apply {
-                    topMargin = (12 * resources.displayMetrics.density).toInt()
+                    topMargin = (12 * density).toInt()
                 }
+                val hPad = (16 * density).toInt()
+                val vPad = (14 * density).toInt()
+                setPadding(hPad, vPad, hPad, vPad)
             }
 
-            // Calculate percentage from actual results
-            val optionVotes = if (index < proposal.votingResults.size) {
-                proposal.votingResults[index].sum().toFloat()
-            } else 0f
-            val percentage = if (totalVotes > 0) (optionVotes / totalVotes * 100).toInt() else 0
-
             val label = MaterialTextView(this).apply {
-                text = "${option.name} - $percentage%"
-                setTextColor(resources.getColor(R.color.white))
+                text = "${option.name} - $percentage% ($optionVotes vote${if (optionVotes != 1L) "s" else ""})"
+                if (isSelected) {
+                    setTextColor(resources.getColor(R.color.black))
+                    setTypeface(typeface, android.graphics.Typeface.BOLD)
+                } else {
+                    setTextColor(resources.getColor(R.color.primary_text_color))
+                }
+                val bottomPad = (8 * density).toInt()
+                setPadding(0, 0, 0, bottomPad)
             }
 
             val progress = LinearProgressIndicator(this).apply {
@@ -133,13 +156,18 @@ class VoteOptionsActivity : BaseActivity() {
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 )
-                setProgressCompat(percentage, false)
-                if (index + 1 == selectedIndex) {
+                trackThickness = (8 * density).toInt()
+                trackCornerRadius = (4 * density).toInt()
+                setProgressCompat(maxOf(percentage, 1), false)
+                if (isSelected) {
                     setIndicatorColor(resources.getColor(R.color.primary_button_color))
+                } else {
+                    setIndicatorColor(resources.getColor(R.color.inactive_color))
                 }
+                trackColor = resources.getColor(R.color.inactive_color)
             }
 
-            if (index + 1 == selectedIndex) {
+            if (isSelected) {
                 resultLayout.background = resources.getDrawable(R.drawable.section_done_background)
             }
 
@@ -147,6 +175,16 @@ class VoteOptionsActivity : BaseActivity() {
             resultLayout.addView(progress)
             container.addView(resultLayout)
         }
+
+        // Show total votes
+        val totalLabel = MaterialTextView(this).apply {
+            text = "Total: $totalVotesInt vote${if (totalVotesInt != 1L) "s" else ""}"
+            setTextColor(resources.getColor(R.color.secondary_text_color))
+            textSize = 14f
+            val topPad = (16 * density).toInt()
+            setPadding(0, topPad, 0, 0)
+        }
+        container.addView(totalLabel)
 
         initViewButtons()
     }
@@ -164,8 +202,8 @@ class VoteOptionsActivity : BaseActivity() {
         clickHelper.setOnClickListener {
             when (it.id) {
                 binding.voteBtn.id -> {
-                    if (selectedOption > 0) {
-                        SecureSharedPrefs.saveVoteResult(this, selectedOption)
+                    if (selectedOption > 0 && proposalData != null) {
+                        SecureSharedPrefs.saveVoteResult(this, proposalData!!.proposalId, selectedOption)
                         finish()
                         Navigator.from(this).openVoteProcessing(votingData, proposalData = proposalData)
                     }

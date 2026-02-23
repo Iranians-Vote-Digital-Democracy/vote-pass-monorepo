@@ -58,7 +58,7 @@ class VoteProcessingActivity : BaseActivity() {
 
     private fun submitVoteV2() {
         val proposal = proposalData ?: return
-        val selectedOption = SecureSharedPrefs.getVoteResult(this)
+        val selectedOption = SecureSharedPrefs.getVoteResult(this, proposal.proposalId)
         if (selectedOption < 1) {
             handleUnknownError()
             return
@@ -109,10 +109,6 @@ class VoteProcessingActivity : BaseActivity() {
                 }
 
                 if ((it.message as String).contains("user already registered")) {
-                    val identity = GenerateVerifiableCredential().createIdentity(
-                        this, apiProvider = apiProvider
-                    )!!
-                    SecureSharedPrefs.saveVotedAddress(this, identity.nullifierHex, selectedContract)
                     handleAlreadyRegisteredError()
                     return@subscribe
                 }
@@ -136,14 +132,12 @@ class VoteProcessingActivity : BaseActivity() {
 
     private fun handleAlreadyRegisteredError() {
         MaterialAlertDialogBuilder(this).setTitle(getString(R.string.you_already_registered))
-            .setPositiveButton(resources.getString(R.string.button_ok)) { dialog, which ->
-
-                Navigator.from(this).openSignedManifest(votingData)
+            .setPositiveButton(resources.getString(R.string.button_ok)) { _, _ ->
                 finish()
+                Navigator.from(this).openOptionVoting(votingData, proposalData)
             }.setOnDismissListener {
-
-                Navigator.from(this).openSignedManifest(votingData)
                 finish()
+                Navigator.from(this).openOptionVoting(votingData, proposalData)
             }.show()
     }
 
@@ -168,7 +162,6 @@ class VoteProcessingActivity : BaseActivity() {
 
     private fun handleEndOfHandler() {
         binding.header.text = resources.getString(R.string.submited_vote_header)
-        //binding.description.text = resources.getString(R.string.submited_vote_description)
         binding.icon.setAnimation(R.raw.checkbox_succes)
         binding.icon.repeatCount = 0
         binding.icon.playAnimation()
@@ -177,12 +170,18 @@ class VoteProcessingActivity : BaseActivity() {
         binding.hint.visibility = View.GONE
         binding.viewPetition.visibility = View.VISIBLE
         isSigned = true
+
+        // Auto-navigate to results after a brief delay for the animation
+        binding.icon.postDelayed({
+            finish()
+            Navigator.from(this).openOptionVoting(votingData, proposalData)
+        }, 1500)
     }
 
     override fun onBackPressed() {
         if (isSigned) {
             finish()
-            Navigator.from(this).openSignedManifest(votingData)
+            Navigator.from(this).openOptionVoting(votingData, proposalData)
         } else {
             finish()
         }
@@ -197,7 +196,7 @@ class VoteProcessingActivity : BaseActivity() {
                 binding.backButton.id -> {
                     if (isSigned) {
                         finish()
-                        Navigator.from(this).openSignedManifest(votingData)
+                        Navigator.from(this).openOptionVoting(votingData, proposalData)
                     } else {
                         finish()
                     }
@@ -205,7 +204,7 @@ class VoteProcessingActivity : BaseActivity() {
 
                 binding.viewPetition.id -> {
                     finish()
-                    Navigator.from(this).openSignedManifest(votingData)
+                    Navigator.from(this).openOptionVoting(votingData, proposalData)
                 }
             }
         }

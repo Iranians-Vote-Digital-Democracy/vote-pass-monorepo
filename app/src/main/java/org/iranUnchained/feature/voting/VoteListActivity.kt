@@ -63,8 +63,8 @@ class VoteListActivity : BaseActivity() {
         // Only show export button in local dev builds
         binding.scanExportButton.visibility = if (BuildConfig.IS_LOCAL_DEV) View.VISIBLE else View.GONE
 
-        // Pre-seed identity data for local dev (so voting flow works without passport scan)
-        if (BuildConfig.IS_LOCAL_DEV) {
+        // Pre-seed mock identity for local dev (toggle SEED_MOCK_IDENTITY in build.gradle.kts)
+        if (BuildConfig.IS_LOCAL_DEV && BuildConfig.SEED_MOCK_IDENTITY) {
             LocalDevSeeder.seedIfNeeded(this)
         }
 

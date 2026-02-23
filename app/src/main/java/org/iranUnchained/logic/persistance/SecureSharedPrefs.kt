@@ -246,6 +246,20 @@ object SecureSharedPrefs {
         return sharedPreferences.getString(tags["DATE_OF_BIRTH"], "")
     }
 
+    fun saveVoteResult(context: Context, proposalId: Long, selectedOption: Int) {
+        val sharedPreferences = getSharedPreferences(context)
+        val editor = sharedPreferences.edit()
+        editor.putInt("VOTE_RESULT_$proposalId", selectedOption)
+        editor.apply()
+    }
+
+    fun getVoteResult(context: Context, proposalId: Long): Int {
+        val sharedPreferences = getSharedPreferences(context)
+        return sharedPreferences.getInt("VOTE_RESULT_$proposalId", -1)
+    }
+
+    // Legacy global accessor — kept for backwards compat during transition
+    @Deprecated("Use per-proposal getVoteResult(context, proposalId)")
     fun saveVoteResult(context: Context, string: Int) {
         val sharedPreferences = getSharedPreferences(context)
         val editor = sharedPreferences.edit()
@@ -253,6 +267,7 @@ object SecureSharedPrefs {
         editor.apply()
     }
 
+    @Deprecated("Use per-proposal getVoteResult(context, proposalId)")
     fun getVoteResult(context: Context): Int {
         val sharedPreferences = getSharedPreferences(context)
         return sharedPreferences.getInt(tags["VOTE_RESULT"], -1)
