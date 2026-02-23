@@ -10,7 +10,7 @@
 - [x] Generate Groth16 proof with per-passport circuit (11s, 5 public signals)
 - [x] Verify proof on-chain with PerPassportVerifier.sol
 - [x] Write integration tests (5 new tests, 24 total integration + 28 existing = all passing)
-- [ ] Commit and update done.md
+- [x] Commit: `de47f12`
 
 ## Completed
 

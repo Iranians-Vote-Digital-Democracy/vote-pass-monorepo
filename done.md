@@ -102,6 +102,7 @@
   - Block 4 — Per-Passport Circuit (5 new): input building validation, proof generation with 5 signals, on-chain verification via PerPassportVerifier, tamper rejection, certificatesRoot consistency check
 - 5 public outputs confirmed: `[0]` dg15PubKeyHash (0 for no AA), `[1]` passportHash, `[2]` dgCommit, `[3]` identityKey, `[4]` certificatesRoot
 - All 24 integration tests pass; all 28 existing BioPassportVoting tests pass
+- Commit: `de47f12`
 
 ### Test Quality Rewrite (fix/comprehensive-tests)
 - Rewrote BioPassportVoting.test.ts per TESTING_GUIDE.md (Moloch testing philosophy)
