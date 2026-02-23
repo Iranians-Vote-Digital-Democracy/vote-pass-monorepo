@@ -35,6 +35,11 @@ import {
   computeCertificatesRoot,
   hasUSCSCA,
   loadUSCSCA,
+  // ICAO Master List authenticity
+  verifyICAOMLAuthenticity,
+  hasICAOMasterList,
+  getICAOMasterListPath,
+  extractICAOMLCertificates,
 } from "@/test/helpers";
 
 import { BioPassportVoting, ProposalsState } from "@ethers-v6";
@@ -44,6 +49,7 @@ import { BioPassportVoting, ProposalsState } from "@ethers-v6";
  *
  * End-to-end tests using real passport data:
  * 1. Passive authentication — SOD signature + DG1 hash verification
+ * 1a. ICAO Master List authenticity — CMS signature verification (UN CSCA → ML Signer → ML)
  * 1b. Certificate chain — DS cert → CSCA → ICAO Master List
  * 1c. ICAO Master Tree — CSCA membership proof (Keccak256 Merkle)
  * 1d. Certificate SMT — DS cert registration (Poseidon hash)
@@ -127,6 +133,85 @@ describe("Passport Integration", function () {
 
       const valid = verifyDG1Hash(passportData.sodHex, tamperedDg1);
       expect(valid).to.equal(false, "DG1 with tampered nationality should NOT match SOD hash");
+    });
+  });
+
+  // =========================================================================
+  // Block 1a: ICAO Master List Authenticity
+  // =========================================================================
+
+  describe("ICAO Master List Authenticity — CMS Signature Verification", () => {
+    before(function () {
+      if (!hasICAOMasterList()) {
+        console.log("  Skipping: no ICAO Master List at test/fixtures/icao/.");
+        this.skip();
+      }
+    });
+
+    it("should verify the CMS signature on the ICAO Master List", function () {
+      const result = verifyICAOMLAuthenticity(getICAOMasterListPath());
+      expect(result.signatureValid).to.equal(
+        true,
+        "CMS signature should verify against the ICAO ML Signer certificate",
+      );
+    });
+
+    it("should verify the ML Signer cert was signed by the UN CSCA", function () {
+      const result = verifyICAOMLAuthenticity(getICAOMasterListPath());
+      expect(result.signerCertValid).to.equal(
+        true,
+        "ICAO ML Signer cert should be signed by the UN CSCA",
+      );
+    });
+
+    it("should verify the UN CSCA is self-signed (trust anchor)", function () {
+      const result = verifyICAOMLAuthenticity(getICAOMasterListPath());
+      expect(result.unCSCASelfSigned).to.equal(
+        true,
+        "UN CSCA should be self-signed as the root trust anchor",
+      );
+    });
+
+    it("should verify both ML signing certificates are within validity period", function () {
+      const result = verifyICAOMLAuthenticity(getICAOMasterListPath());
+      expect(result.signerCertWithinValidity).to.equal(
+        true,
+        "ICAO ML Signer cert should be within validity period",
+      );
+      expect(result.unCSCAWithinValidity).to.equal(
+        true,
+        "UN CSCA should be within validity period",
+      );
+    });
+
+    it("should confirm the ML Signer is issued by the United Nations", function () {
+      const result = verifyICAOMLAuthenticity(getICAOMasterListPath());
+      expect(result.signerSubject).to.include("United Nations");
+      expect(result.signerSubject).to.include("Master List Signers");
+      expect(result.signerIssuer).to.include("United Nations");
+      expect(result.signerIssuer).to.include("Certification Authorities");
+    });
+
+    it("should contain the expected number of CSCA certificates", function () {
+      const result = verifyICAOMLAuthenticity(getICAOMasterListPath());
+      expect(result.cscaCount).to.equal(
+        536,
+        "December 2025 ML should contain 536 CSCA certificates",
+      );
+    });
+
+    it("should extract ML Signer and UN CSCA certificates from CMS envelope", function () {
+      const certs = extractICAOMLCertificates(getICAOMasterListPath());
+      const crypto = require("crypto");
+
+      const signer = new crypto.X509Certificate(certs.signerPem);
+      expect(signer.subject).to.include("ICAO Master List Signer");
+
+      const unCSCA = new crypto.X509Certificate(certs.unCSCAPem);
+      expect(unCSCA.subject).to.include("United Nations CSCA");
+
+      // The signer should be verified by the UN CSCA
+      expect(signer.verify(unCSCA.publicKey)).to.equal(true);
     });
   });
 
@@ -1027,13 +1112,21 @@ describe("Passport Integration", function () {
 
     afterEach(reverter.revert);
 
-    it("should verify complete chain: ICAO → CSCA → DS → SOD → DG1 → ZK proof", async function () {
+    it("should verify complete chain: ICAO ML → CSCA → DS → SOD → DG1 → ZK proof", async function () {
       if (!hasUSCSCA()) {
         console.log("  Skipping: no US CSCA certificate.");
         this.skip();
       }
 
       const cscaPem = loadUSCSCA();
+
+      // 0. Verify ICAO ML authenticity (if ML file available)
+      if (hasICAOMasterList()) {
+        const mlResult = verifyICAOMLAuthenticity(getICAOMasterListPath());
+        expect(mlResult.signatureValid).to.equal(true, "ML CMS signature must be valid");
+        expect(mlResult.signerCertValid).to.equal(true, "ML Signer must be signed by UN CSCA");
+        expect(mlResult.unCSCASelfSigned).to.equal(true, "UN CSCA must be self-signed");
+      }
 
       // 1. Verify CSCA is in ICAO Merkle tree
       const tree = buildICAOMerkleTree([cscaPem]);

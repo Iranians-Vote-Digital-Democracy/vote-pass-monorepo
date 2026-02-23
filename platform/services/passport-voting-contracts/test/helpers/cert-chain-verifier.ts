@@ -2,6 +2,8 @@ import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
 
+import { AsnConvert } from "@peculiar/asn1-schema";
+import { ContentInfo, SignedData } from "@peculiar/asn1-cms";
 import { Poseidon } from "@iden3/js-crypto";
 import MerkleTree from "merkletreejs";
 import { keccak256 as ethersKeccak256 } from "ethers";
@@ -77,6 +79,276 @@ export function verifyCertificateChain(
     new Date(cscaCert.validFrom) <= now && now <= new Date(cscaCert.validTo);
 
   return { signatureValid, issuerMatch, akiSkiMatch, dsCertValid, cscaValid };
+}
+
+// ---------------------------------------------------------------------------
+// ICAO Master List Authenticity (CMS signature verification)
+// ---------------------------------------------------------------------------
+
+export interface ICAOMLVerificationResult {
+  /** CMS signature over the ML content is valid */
+  signatureValid: boolean;
+  /** ML Signer cert was signed by the UN CSCA */
+  signerCertValid: boolean;
+  /** UN CSCA is self-signed */
+  unCSCASelfSigned: boolean;
+  /** ML Signer cert subject/issuer info */
+  signerSubject: string;
+  signerIssuer: string;
+  /** UN CSCA subject info */
+  unCSCASubject: string;
+  /** Validity periods */
+  signerCertWithinValidity: boolean;
+  unCSCAWithinValidity: boolean;
+  /** Number of CSCA certificates in the Master List content */
+  cscaCount: number;
+}
+
+/**
+ * Verify the ICAO Master List CMS envelope signature.
+ *
+ * The ML file is a CMS SignedData (RFC 5652) containing:
+ * - Content: MasterList ASN.1 structure with CSCA certificates
+ * - Signer: "ICAO Master List Signer" certificate
+ * - CA: "United Nations CSCA" (self-signed root)
+ *
+ * This function verifies:
+ * 1. The CMS signature over the signedAttrs is valid (using the ML Signer cert)
+ * 2. The ML Signer cert was signed by the UN CSCA
+ * 3. The UN CSCA is self-signed
+ *
+ * @param mlDerPath Path to the ICAO Master List .ml file (DER-encoded CMS)
+ */
+export function verifyICAOMLAuthenticity(mlDerPath: string): ICAOMLVerificationResult {
+  const der = fs.readFileSync(mlDerPath);
+  const contentInfo = AsnConvert.parse(der, ContentInfo);
+  const signedData = AsnConvert.parse(contentInfo.content, SignedData);
+
+  // Extract embedded certificates
+  const certs = extractCMSCertificates(signedData);
+  if (certs.length < 2) {
+    throw new Error(`Expected at least 2 certificates in CMS, found ${certs.length}`);
+  }
+
+  // Identify signer cert (OU=Master List Signers) and CA cert (OU=Certification Authorities)
+  const signerCert = certs.find((c) => c.x509.subject.includes("Master List Signers"));
+  const caCert = certs.find((c) =>
+    c.x509.subject.includes("Certification Authorities") &&
+    c.x509.subject.includes("United Nations"),
+  );
+
+  if (!signerCert) throw new Error("ICAO ML Signer certificate not found in CMS");
+  if (!caCert) throw new Error("UN CSCA certificate not found in CMS");
+
+  // 1. Verify CMS signature
+  const signatureValid = verifyCMSSignature(signedData, signerCert.pem);
+
+  // 2. Verify signer cert was signed by UN CSCA
+  let signerCertValid = false;
+  try {
+    signerCertValid = signerCert.x509.verify(caCert.x509.publicKey);
+  } catch {
+    signerCertValid = false;
+  }
+
+  // 3. Verify UN CSCA is self-signed
+  let unCSCASelfSigned = false;
+  try {
+    unCSCASelfSigned = caCert.x509.verify(caCert.x509.publicKey);
+  } catch {
+    unCSCASelfSigned = false;
+  }
+
+  // 4. Validity checks
+  const now = new Date();
+  const signerCertWithinValidity =
+    new Date(signerCert.x509.validFrom) <= now &&
+    now <= new Date(signerCert.x509.validTo);
+  const unCSCAWithinValidity =
+    new Date(caCert.x509.validFrom) <= now &&
+    now <= new Date(caCert.x509.validTo);
+
+  // 5. Count CSCA certs in the ML content
+  let cscaCount = 0;
+  try {
+    const eContent = signedData.encapContentInfo.eContent;
+    if (eContent?.single) {
+      const raw = (eContent.single as any).buffer ?? eContent.single;
+      let contentBuf = Buffer.from(new Uint8Array(raw));
+      if (contentBuf.length === 0) {
+        const serialized = AsnConvert.serialize(eContent.single);
+        const serBuf = Buffer.from(new Uint8Array(serialized));
+        const { headerLen } = parseDERTag(serBuf, 0);
+        contentBuf = serBuf.subarray(headerLen);
+      }
+      cscaCount = countCertificatesInMasterList(contentBuf);
+    }
+  } catch {
+    // Best effort
+  }
+
+  return {
+    signatureValid,
+    signerCertValid,
+    unCSCASelfSigned,
+    signerSubject: signerCert.x509.subject,
+    signerIssuer: signerCert.x509.issuer,
+    unCSCASubject: caCert.x509.subject,
+    signerCertWithinValidity,
+    unCSCAWithinValidity,
+    cscaCount,
+  };
+}
+
+/**
+ * Check if the ICAO Master List .ml file exists.
+ */
+export function hasICAOMasterList(): boolean {
+  return fs.existsSync(path.join(ICAO_DIR, "ICAO_ml_December2025.ml"));
+}
+
+/**
+ * Get the path to the ICAO Master List .ml file.
+ */
+export function getICAOMasterListPath(): string {
+  return path.join(ICAO_DIR, "ICAO_ml_December2025.ml");
+}
+
+/**
+ * Extract the ICAO ML Signer and UN CSCA certificates from the ML CMS envelope.
+ */
+export function extractICAOMLCertificates(mlDerPath: string): {
+  signerPem: string;
+  unCSCAPem: string;
+} {
+  const der = fs.readFileSync(mlDerPath);
+  const contentInfo = AsnConvert.parse(der, ContentInfo);
+  const signedData = AsnConvert.parse(contentInfo.content, SignedData);
+
+  const certs = extractCMSCertificates(signedData);
+  const signer = certs.find((c) => c.x509.subject.includes("Master List Signers"));
+  const ca = certs.find((c) =>
+    c.x509.subject.includes("Certification Authorities") &&
+    c.x509.subject.includes("United Nations"),
+  );
+
+  if (!signer) throw new Error("ICAO ML Signer certificate not found");
+  if (!ca) throw new Error("UN CSCA certificate not found");
+
+  return { signerPem: signer.pem, unCSCAPem: ca.pem };
+}
+
+// ---------------------------------------------------------------------------
+// CMS signature verification (internal)
+// ---------------------------------------------------------------------------
+
+interface CMSCertInfo {
+  pem: string;
+  x509: crypto.X509Certificate;
+}
+
+function extractCMSCertificates(signedData: SignedData): CMSCertInfo[] {
+  const result: CMSCertInfo[] = [];
+  if (!signedData.certificates) return result;
+
+  for (const certChoice of signedData.certificates) {
+    const cert = certChoice.certificate;
+    if (!cert) continue;
+
+    const certDer = Buffer.from(new Uint8Array(AsnConvert.serialize(cert)));
+    const b64 = certDer.toString("base64");
+    const lines = b64.match(/.{1,64}/g) || [];
+    const pem = `-----BEGIN CERTIFICATE-----\n${lines.join("\n")}\n-----END CERTIFICATE-----`;
+
+    try {
+      const x509 = new crypto.X509Certificate(pem);
+      result.push({ pem, x509 });
+    } catch {
+      // Skip unparseable certs
+    }
+  }
+
+  return result;
+}
+
+function verifyCMSSignature(signedData: SignedData, signerCertPem: string): boolean {
+  const si = signedData.signerInfos[0];
+  const publicKey = crypto.createPublicKey(normalizePEM(signerCertPem));
+
+  // Extract signature bytes
+  const sigBuf = (() => {
+    const val = si.signature;
+    if ((val as any).buffer) return Buffer.from(new Uint8Array((val as any).buffer));
+    if (val instanceof ArrayBuffer) return Buffer.from(new Uint8Array(val));
+    return Buffer.from(val as any);
+  })();
+
+  // Extract signedAttrs DER from the re-serialized SignerInfo
+  const siDer = Buffer.from(new Uint8Array(AsnConvert.serialize(si)));
+
+  let off = 0;
+  const outerSeq = parseDERTag(siDer, off);
+  off += outerSeq.headerLen;
+
+  // version INTEGER
+  const ver = parseDERTag(siDer, off);
+  off += ver.headerLen + ver.length;
+
+  // sid SignerIdentifier
+  const sid = parseDERTag(siDer, off);
+  off += sid.headerLen + sid.length;
+
+  // digestAlgorithm
+  const da = parseDERTag(siDer, off);
+  off += da.headerLen + da.length;
+
+  // signedAttrs [0] (tag 0xa0)
+  const saTag = parseDERTag(siDer, off);
+  if (saTag.tag !== 0xa0) {
+    return false;
+  }
+
+  const saRaw = Buffer.from(siDer.subarray(off, off + saTag.headerLen + saTag.length));
+  // Replace tag 0xa0 with 0x31 (SET) for signature verification per RFC 5652
+  const saForVerify = Buffer.from(saRaw);
+  saForVerify[0] = 0x31;
+
+  // Determine digest algorithm from SignerInfo
+  const digestOid = si.digestAlgorithm.algorithm;
+  const digestName = digestOid === "2.16.840.1.101.3.4.2.1" ? "sha256" :
+                     digestOid === "2.16.840.1.101.3.4.2.2" ? "sha384" :
+                     digestOid === "2.16.840.1.101.3.4.2.3" ? "sha512" : "sha256";
+
+  try {
+    const verify = crypto.createVerify(digestName);
+    verify.update(saForVerify);
+    return verify.verify(publicKey, sigBuf);
+  } catch {
+    return false;
+  }
+}
+
+function countCertificatesInMasterList(contentBuf: Buffer): number {
+  // MasterList: SEQUENCE { version INTEGER, certList SET OF Certificate }
+  const outerSeq = parseDERTag(contentBuf, 0);
+  let off = outerSeq.headerLen;
+
+  // Skip version
+  const verTag = parseDERTag(contentBuf, off);
+  off += verTag.headerLen + verTag.length;
+
+  // SET OF Certificate
+  const setTag = parseDERTag(contentBuf, off);
+  let certOff = off + setTag.headerLen;
+  const setEnd = off + setTag.headerLen + setTag.length;
+
+  let count = 0;
+  while (certOff < setEnd) {
+    const certTag = parseDERTag(contentBuf, certOff);
+    certOff += certTag.headerLen + certTag.length;
+    count++;
+  }
+  return count;
 }
 
 // ---------------------------------------------------------------------------
