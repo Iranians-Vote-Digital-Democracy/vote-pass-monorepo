@@ -49,6 +49,24 @@
 - Added `test:realproof` npm script — commit: `f3f88e3`
 - Note: Android app changes are on-disk only (app is a separate repo, not tracked in main git)
 
+### Local Proof Generation & E2E Contract Testing (feature/local-proof-generation)
+- Added snarkjs dependency for local Groth16 proof generation from Node.js
+- Created `registration-proof-generator.ts` helper:
+  - `dg1HexToBitArray()`: converts hex DG1 to 1024-element bit array for circuit input
+  - `generateRegistrationProof()`: generates real Groth16 proof via snarkjs.groth16.fullProve
+  - `verifyRegistrationProofOffchain()`: off-chain proof verification using vkey.json
+  - `registrationProofToProofPoints()`: converts snarkjs proof to Solidity struct (BN254 pi_b reversal)
+- Copied `RegisterIdentityLight256Verifier.sol` to mock contracts (standalone, no imports)
+- Created `PassportIntegration.test.ts` with 8 tests in 3 blocks:
+  - Registration Proof Generation (4): real proof from DG1, on-chain verify, tamper reject, key independence
+  - Voting with Real Passport Data (3): citizenship match, vote recording with VoteCast event, mismatch reject
+  - Full Stack Integration (1): registration proof + voting in one flow
+- Fixed `passport-data-loader.ts` path resolution (was 4 `../`, needed 5 to reach repo root)
+- Added `test:integration` npm script
+- All 8 integration tests pass with real passport data; skip gracefully without data
+- All 28 existing tests still pass
+- Commit: `229c2b8`
+
 ### Test Quality Rewrite (fix/comprehensive-tests)
 - Rewrote BioPassportVoting.test.ts per TESTING_GUIDE.md (Moloch testing philosophy)
 - 28 tests: DRY helpers, verification functions, full require coverage
