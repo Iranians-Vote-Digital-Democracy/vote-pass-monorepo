@@ -134,6 +134,24 @@
 - All 46 integration tests pass; all 28 existing BioPassportVoting tests pass
 - Commits: `449faef`, `0a417d5`
 
+### Moloch Style Guide Audit (feature/passport-security-chain-tests)
+- DRY refactor: extracted 5 duplicated helpers to top-level shared scope
+  - `deployProposalsState()`, `deployBioPassportVotingWithState()`, `citizenshipCode()`, `encodeVotingConfig()`, `getCurrentDate()`, `loadTestCaPem()`
+  - Cached `verifyICAOMLAuthenticity()` result in Block 1a `before()` (was re-parsing 810KB ML file 7 times)
+  - Cached `verifyCertificateChain()` result in Block 1b `before()`
+  - Removed 4x inline `require("fs")`/`require("path")` calls
+  - Removed unused `SignerWithAddress` import and `OWNER` variables
+  - Net reduction: 93 lines (-240/+148)
+- Commit: `e4fc698`
+- Added 5 missing coverage tests per Moloch guide:
+  - SOD signature rejection with wrong certificate (Block 1)
+  - DG1 hash rejection with completely unrelated data (Block 1)
+  - Full DG1 field parsing: all 9 MRZ fields vs personDetails (Block 2)
+  - certificatesRoot determinism: same key always produces same root (Block 1d)
+  - Empty Merkle tree boundary: zero certs produces empty root (Block 1c)
+- 46 → 51 integration tests, all passing; all 28 existing BioPassportVoting tests pass
+- Commit: `5eb1d10`
+
 ### Test Quality Rewrite (fix/comprehensive-tests)
 - Rewrote BioPassportVoting.test.ts per TESTING_GUIDE.md (Moloch testing philosophy)
 - 28 tests: DRY helpers, verification functions, full require coverage
