@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
-const EXTRACTED_DATA_DIR = path.resolve(__dirname, "../../../../extracted_data");
+const EXTRACTED_DATA_DIR = path.resolve(__dirname, "../../../../../extracted_data");
 
 export interface PassportData {
   version: number;
