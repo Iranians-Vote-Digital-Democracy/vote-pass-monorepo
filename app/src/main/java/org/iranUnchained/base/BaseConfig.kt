@@ -79,9 +79,9 @@ object LocalDev {
 
     const val CORE_LINK = "http://10.0.2.2:8545"
 
-    // Contracts deployed on local Hardhat (update after deploy)
-    const val REGISTRATION_ADDRESS = "0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1"
-    const val PROPOSAL_ADDRESS = "0x6212cb549De37c25071cF506aB7E115D140D9e42"
+    // Contracts deployed on local Hardhat (update after deploy if addresses change)
+    const val REGISTRATION_ADDRESS = "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6"
+    const val PROPOSAL_ADDRESS = "0x0165878A594ca255338adfa4d48449f69242Eb8F"
 
     const val BLOCK_CHAIN_RPC_LINK = "http://10.0.2.2:8545"
 
