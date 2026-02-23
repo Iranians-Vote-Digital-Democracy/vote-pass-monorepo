@@ -2,7 +2,6 @@ package org.iranUnchained.data.datasource.api
 
 import android.util.Log
 import com.google.gson.Gson
-import com.google.gson.JsonParser
 import io.reactivex.Single
 import org.iranUnchained.base.ActiveConfig
 import org.iranUnchained.contracts.ProposalsState
@@ -11,6 +10,7 @@ import org.iranUnchained.data.models.ProposalData
 import org.iranUnchained.data.models.ProposalMetadata
 import org.iranUnchained.data.models.ProposalStatus
 import org.iranUnchained.di.providers.ApiProvider
+import org.iranUnchained.utils.ProposalParser
 import org.web3j.crypto.Credentials
 import org.web3j.crypto.Keys
 import org.web3j.tx.gas.DefaultGasProvider
@@ -46,7 +46,7 @@ object ProposalProvider {
                     }
 
                     val config = info.config
-                    val metadata = parseDescription(config.description)
+                    val metadata = ProposalParser.parseDescription(config.description)
 
                     val options = if (metadata.options.isNotEmpty()) {
                         metadata.options.mapIndexed { index, name ->
@@ -64,7 +64,7 @@ object ProposalProvider {
                         ""
                     }
 
-                    val citizenshipWhitelist = parseVotingWhitelistData(config.votingWhitelistData)
+                    val citizenshipWhitelist = ProposalParser.parseVotingWhitelistData(config.votingWhitelistData)
 
                     val votingResultsRaw = info.votingResults ?: emptyList()
                     val votingResults = votingResultsRaw.map { optionResults ->
@@ -106,65 +106,4 @@ object ProposalProvider {
         }
     }
 
-    private fun parseDescription(description: String): ProposalMetadata {
-        return try {
-            val json = JsonParser.parseString(description).asJsonObject
-            ProposalMetadata(
-                title = json.get("title")?.asString ?: "",
-                description = json.get("description")?.asString ?: "",
-                options = json.getAsJsonArray("options")?.map { it.asString } ?: emptyList()
-            )
-        } catch (e: Exception) {
-            ProposalMetadata(
-                title = description.take(100),
-                description = description,
-                options = emptyList()
-            )
-        }
-    }
-
-    private fun parseVotingWhitelistData(whitelistData: List<ByteArray>): List<Long> {
-        if (whitelistData.isEmpty()) return emptyList()
-
-        return try {
-            val data = whitelistData[0]
-            if (data.isEmpty()) return emptyList()
-
-            val result = mutableListOf<Long>()
-            // votingWhitelistData is ABI-encoded ProposalRules struct
-            // Parse citizenship whitelist from the encoded bytes
-            // The citizenship whitelist is a uint256[] inside the ProposalRules tuple
-            // For simplicity, we extract country codes from the raw ABI data
-            val bi = BigInteger(1, data)
-            if (bi != BigInteger.ZERO) {
-                // If there's data, try to decode it as ABI-encoded ProposalRules
-                // The struct has: selector, citizenshipWhitelist[], and other fields
-                // Skip selector (32 bytes), then read the dynamic array offset and data
-                if (data.size >= 64) {
-                    // Read offset to citizenshipWhitelist (at byte 32)
-                    val offsetBytes = data.copyOfRange(32, 64)
-                    val offset = BigInteger(1, offsetBytes).toInt()
-
-                    if (offset + 32 <= data.size) {
-                        // Read array length
-                        val lengthBytes = data.copyOfRange(offset, offset + 32)
-                        val length = BigInteger(1, lengthBytes).toInt()
-
-                        // Read each element
-                        for (i in 0 until length) {
-                            val elemStart = offset + 32 + (i * 32)
-                            if (elemStart + 32 <= data.size) {
-                                val elemBytes = data.copyOfRange(elemStart, elemStart + 32)
-                                result.add(BigInteger(1, elemBytes).toLong())
-                            }
-                        }
-                    }
-                }
-            }
-            result
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to parse voting whitelist data", e)
-            emptyList()
-        }
-    }
 }

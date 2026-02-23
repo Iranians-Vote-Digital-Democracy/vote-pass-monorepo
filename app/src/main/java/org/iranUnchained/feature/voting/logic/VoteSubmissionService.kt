@@ -17,6 +17,7 @@ import org.iranUnchained.logic.persistance.SecureSharedPrefs
 import org.iranUnchained.BuildConfig
 import org.iranUnchained.utils.CalldataEncoder
 import org.iranUnchained.utils.PassportDataExporter
+import org.iranUnchained.utils.VoteSMTInputsBuilder
 import org.iranUnchained.utils.ZKPTools
 import org.iranUnchained.utils.ZKPUseCase
 import org.web3j.crypto.Credentials
@@ -144,8 +145,9 @@ class VoteSubmissionService(
         val identityCreationTimestamp = BigInteger(identityData.timeStamp)
 
         // Build circuit inputs JSON
-        val inputsJson = buildVoteSMTInputsJson(
-            registrationRoot = registrationRoot,
+        val rootHex = org.web3j.utils.Numeric.toHexStringNoPrefix(registrationRoot)
+        val inputsJson = VoteSMTInputsBuilder.buildJson(
+            registrationRootHex = rootHex,
             currentDate = currentDate,
             proposalEventId = proposalEventId,
             nullifier = nullifier,
@@ -269,32 +271,4 @@ class VoteSubmissionService(
         }
     }
 
-    private fun buildVoteSMTInputsJson(
-        registrationRoot: ByteArray,
-        currentDate: BigInteger,
-        proposalEventId: BigInteger,
-        nullifier: BigInteger,
-        secretKey: BigInteger,
-        citizenship: BigInteger,
-        identityCreationTimestamp: BigInteger,
-        votes: List<BigInteger>,
-        proposalId: BigInteger
-    ): String {
-        val rootHex = org.web3j.utils.Numeric.toHexStringNoPrefix(registrationRoot)
-        val votesStr = votes.joinToString(",") { "\"$it\"" }
-
-        return """
-        {
-            "root": "$rootHex",
-            "currentDate": "${currentDate}",
-            "proposalEventId": "${proposalEventId}",
-            "nullifier": "${nullifier}",
-            "secretKey": "${secretKey}",
-            "citizenship": "${citizenship}",
-            "identityCreationTimestamp": "${identityCreationTimestamp}",
-            "vote": [${votesStr}],
-            "proposalId": "${proposalId}"
-        }
-        """.trimIndent()
-    }
 }
