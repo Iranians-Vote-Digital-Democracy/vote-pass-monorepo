@@ -13,6 +13,13 @@ import {
   generateRegistrationProof,
   verifyRegistrationProofOffchain,
   registrationProofToProofPoints,
+  parseSOD,
+  verifyDG1Hash,
+  verifySODSignature,
+  extractCertificateInfo,
+  parseDG1Fields,
+  tamperDG1Byte,
+  tamperDG1Field,
   PassportData,
   RegistrationProofResult,
 } from "@/test/helpers";
@@ -23,9 +30,11 @@ import { BioPassportVoting, ProposalsState } from "@ethers-v6";
  * Passport Integration Tests
  *
  * End-to-end tests using real passport data:
- * 1. Registration proof generation — real DG1 → Groth16 proof → on-chain verification
- * 2. Voting with real passport attributes — citizenship, dates flow through contract logic
- * 3. Full stack — registration proof + voting in one flow
+ * 1. Passive authentication — SOD signature + DG1 hash verification
+ * 2. DG1 data integrity — field parsing + tamper detection via ZK proof
+ * 3. Registration proof on-chain verification
+ * 4. Voting with real passport attributes — citizenship, dates flow through contract logic
+ * 5. Full stack — registration proof + voting in one flow
  *
  * Skips gracefully if no extracted passport data or circuit artifacts exist.
  */
@@ -34,10 +43,163 @@ describe("Passport Integration", function () {
   this.timeout(120000);
 
   // =========================================================================
-  // Block 1: Registration Proof Generation
+  // Block 1: Passive Authentication — SOD Verification
   // =========================================================================
 
-  describe("Registration Proof Generation", () => {
+  describe("Passive Authentication — SOD Verification", () => {
+    let passportData: PassportData;
+
+    before(function () {
+      if (!hasPassportData()) {
+        console.log("  Skipping: no extracted passport data in extracted_data/.");
+        this.skip();
+      }
+      passportData = loadPassportData();
+    });
+
+    it("should parse the SOD structure and extract data group hashes", function () {
+      const result = parseSOD(passportData.sodHex);
+
+      // Must contain at least DG1 hash
+      const dg1Entry = result.ldsSecurityObject.dataGroupHashes.find((dg) => dg.dataGroupNumber === 1);
+      expect(dg1Entry).to.not.be.undefined;
+      expect(dg1Entry!.dataGroupHashValue.length).to.be.greaterThan(0);
+
+      // Hash algorithm should be recognized (typically SHA-256)
+      expect(result.ldsSecurityObject.hashAlgorithmOid).to.not.be.empty;
+
+      // Signer info should have signature bytes
+      expect(result.signerInfo.signature.length).to.be.greaterThan(0);
+    });
+
+    it("should verify DG1 hash matches the SOD signed hash", function () {
+      const valid = verifyDG1Hash(passportData.sodHex, passportData.dg1Hex);
+      expect(valid).to.equal(true, "DG1 hash should match the hash in the SOD");
+    });
+
+    it("should verify the SOD signature with the document signing certificate", function () {
+      const valid = verifySODSignature(passportData.sodHex, passportData.docSigningCertPem);
+      expect(valid).to.equal(true, "SOD signature should verify against the document signing certificate");
+    });
+
+    it("should extract certificate details matching the passport issuer", function () {
+      const certInfo = extractCertificateInfo(passportData.docSigningCertPem);
+
+      // Certificate should have an issuer country
+      expect(certInfo.issuerCountry).to.not.be.undefined;
+
+      // Certificate should not be expired (at the time of passport issuance)
+      expect(certInfo.notBefore).to.be.instanceOf(Date);
+      expect(certInfo.notAfter).to.be.instanceOf(Date);
+      expect(certInfo.notAfter.getTime()).to.be.greaterThan(certInfo.notBefore.getTime());
+
+      // Serial number should exist
+      expect(certInfo.serialNumber).to.not.be.empty;
+    });
+
+    it("should detect tampered DG1 via SOD hash mismatch", function () {
+      // Tamper one byte in the MRZ area (byte 10 = part of issuing state)
+      const tamperedDg1 = tamperDG1Byte(passportData.dg1Hex, 10, 0x58); // 'X'
+
+      const valid = verifyDG1Hash(passportData.sodHex, tamperedDg1);
+      expect(valid).to.equal(false, "Tampered DG1 should NOT match the SOD hash");
+    });
+
+    it("should detect tampered nationality via SOD hash mismatch", function () {
+      const tamperedDg1 = tamperDG1Field(passportData.dg1Hex, "nationality", "ZZZ");
+
+      const valid = verifyDG1Hash(passportData.sodHex, tamperedDg1);
+      expect(valid).to.equal(false, "DG1 with tampered nationality should NOT match SOD hash");
+    });
+  });
+
+  // =========================================================================
+  // Block 2: DG1 Data Integrity
+  // =========================================================================
+
+  describe("DG1 Data Integrity", () => {
+    let passportData: PassportData;
+
+    before(function () {
+      if (!hasPassportData()) {
+        console.log("  Skipping: no extracted passport data in extracted_data/.");
+        this.skip();
+      }
+      passportData = loadPassportData();
+    });
+
+    it("should parse DG1 fields matching personDetails", function () {
+      const fields = parseDG1Fields(passportData.dg1Hex);
+
+      // Document type should be 'P' for passport
+      expect(fields.documentType).to.equal("P");
+
+      // Nationality from MRZ should match personDetails
+      expect(fields.nationality).to.equal(
+        passportData.personDetails.nationality,
+        "MRZ nationality should match personDetails",
+      );
+
+      // Issuing state should match
+      expect(fields.issuingState).to.equal(
+        passportData.personDetails.issuerAuthority,
+        "MRZ issuing state should match personDetails",
+      );
+
+      // Sex should match
+      const expectedSex = passportData.personDetails.gender === "MALE" ? "M" :
+                          passportData.personDetails.gender === "FEMALE" ? "F" : passportData.personDetails.gender;
+      expect(fields.sex).to.equal(expectedSex, "MRZ sex should match personDetails");
+    });
+
+    it("should produce different dg1Hash when DG1 is tampered", async function () {
+      if (!hasRegistrationCircuit()) {
+        console.log("  Skipping: registration circuit artifacts not found.");
+        this.skip();
+      }
+
+      // Generate proof from original DG1
+      const originalResult = await generateRegistrationProof(passportData.dg1Hex, 42n);
+
+      // Tamper nationality field
+      const tamperedDg1 = tamperDG1Field(passportData.dg1Hex, "nationality", "ZZZ");
+      const tamperedResult = await generateRegistrationProof(tamperedDg1, 42n);
+
+      // dg1Hash (signal 0) should differ because DG1 content changed
+      expect(originalResult.publicSignals[0]).to.not.equal(
+        tamperedResult.publicSignals[0],
+        "dg1Hash should differ when DG1 is tampered",
+      );
+    });
+
+    it("should produce same dg1Hash for same DG1 regardless of secret key", async function () {
+      if (!hasRegistrationCircuit()) {
+        console.log("  Skipping: registration circuit artifacts not found.");
+        this.skip();
+      }
+
+      const result1 = await generateRegistrationProof(passportData.dg1Hex, 12345n);
+      const result2 = await generateRegistrationProof(passportData.dg1Hex, 67890n);
+
+      // dg1Hash (signal 0) should be the same (same passport data)
+      expect(result1.publicSignals[0]).to.equal(
+        result2.publicSignals[0],
+        "dg1Hash should be identical for same passport data",
+      );
+
+      // pkIdentityHash (signal 2) should differ (different secret keys)
+      expect(result1.publicSignals[2]).to.not.equal(
+        result2.publicSignals[2],
+        "pkIdentityHash should differ for different secret keys",
+      );
+    });
+  });
+
+  // =========================================================================
+  // Block 3: Registration Proof On-Chain Verification
+  // =========================================================================
+
+  describe("Registration Proof On-Chain Verification", () => {
     let passportData: PassportData;
     let proofResult: RegistrationProofResult;
 
@@ -103,6 +265,40 @@ describe("Passport Integration", function () {
       expect(result).to.equal(false, "Tampered proof should be rejected");
     });
 
+    it("should reject proof with wrong public signals", async function () {
+      if (!proofResult) {
+        proofResult = await generateRegistrationProof(passportData.dg1Hex);
+      }
+
+      const Verifier = await ethers.getContractFactory("RegisterIdentityLight256Verifier");
+      const verifier = await Verifier.deploy();
+
+      const pp = registrationProofToProofPoints(proofResult.proof);
+      const pubSignals = proofResult.publicSignals.map((s) => BigInt(s));
+
+      // Swap signal 0 and signal 2 (dg1Hash and pkIdentityHash)
+      const swappedSignals = [pubSignals[2], pubSignals[1], pubSignals[0]];
+
+      const result = await verifier.verifyProof(pp.a, pp.b, pp.c, swappedSignals);
+      expect(result).to.equal(false, "Proof with swapped public signals should be rejected");
+    });
+
+    it("should reject proof generated from different passport data", async function () {
+      // Generate proof from tampered DG1
+      const tamperedDg1 = tamperDG1Field(passportData.dg1Hex, "nationality", "ZZZ");
+      const tamperedProof = await generateRegistrationProof(tamperedDg1);
+
+      const Verifier = await ethers.getContractFactory("RegisterIdentityLight256Verifier");
+      const verifier = await Verifier.deploy();
+
+      // Use tampered proof's proof points but original passport's public signals
+      const pp = registrationProofToProofPoints(tamperedProof.proof);
+      const originalSignals = proofResult!.publicSignals.map((s) => BigInt(s));
+
+      const result = await verifier.verifyProof(pp.a, pp.b, pp.c, originalSignals);
+      expect(result).to.equal(false, "Proof from different passport should not verify with original signals");
+    });
+
     it("should produce different proofs for different secret keys", async function () {
       const result1 = await generateRegistrationProof(passportData.dg1Hex, 12345n);
       const result2 = await generateRegistrationProof(passportData.dg1Hex, 67890n);
@@ -122,7 +318,7 @@ describe("Passport Integration", function () {
   });
 
   // =========================================================================
-  // Block 2: Voting with Real Passport Data
+  // Block 4: Voting with Real Passport Data
   // =========================================================================
 
   describe("Voting with Real Passport Data", () => {
@@ -348,7 +544,7 @@ describe("Passport Integration", function () {
   });
 
   // =========================================================================
-  // Block 3: Full Stack Integration
+  // Block 5: Full Stack Integration
   // =========================================================================
 
   describe("Full Stack Integration", () => {

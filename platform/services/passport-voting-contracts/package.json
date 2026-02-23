@@ -56,6 +56,7 @@
     "@nomicfoundation/hardhat-ethers": "^3.0.5",
     "@nomicfoundation/hardhat-network-helpers": "^1.0.10",
     "@nomicfoundation/hardhat-verify": "^2.1.0",
+    "@peculiar/asn1-cms": "^2.6.1",
     "@peculiar/asn1-rsa": "^2.6.0",
     "@peculiar/asn1-schema": "^2.6.0",
     "@peculiar/asn1-x509": "^2.6.0",
