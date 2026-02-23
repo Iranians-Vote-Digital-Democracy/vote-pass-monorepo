@@ -234,6 +234,7 @@
             android:id="@+id/export_test_data_button"
             style="@style/Widget.Material3.Button.OutlinedButton"
             android:layout_width="0dp"
+            android:layout_height="wrap_content"
             android:text="Export Test Data"
             android:layout_marginStart="32dp"
             android:layout_marginEnd="32dp"
