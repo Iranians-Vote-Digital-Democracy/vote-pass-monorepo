@@ -9,7 +9,7 @@
 - [x] Create `cert-chain-verifier.ts` helper (DS→CSCA, ICAO tree, Cert SMT)
 - [x] Add 15 new integration tests (3 blocks + 1 full chain test)
 - [x] All 39 integration tests pass, all 28 existing tests pass
-- [ ] Commit and update done.md
+- [x] Commit: `449faef`
 
 ## Completed
 

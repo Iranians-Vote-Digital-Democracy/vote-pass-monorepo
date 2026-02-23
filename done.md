@@ -104,6 +104,27 @@
 - All 24 integration tests pass; all 28 existing BioPassportVoting tests pass
 - Commit: `de47f12`
 
+### ICAO Certificate Chain Verification (feature/passport-security-chain-tests)
+- Added ICAO Master List (December 2025, 536 CSCAs from 114 countries) to `test/fixtures/icao/`
+- Created `extract-csca.ts` script to parse ICAO ML CMS envelope and extract per-country CSCAs
+- Extracted 7 US CSCA certificates; matched DS cert (serial 5DCE388B) to CSCA serial 4E32D006 via signature verification
+- Created `cert-chain-verifier.ts` helper:
+  - `verifyDSCertSignedByCSCA()`: X.509 signature verification (DS cert → CSCA)
+  - `verifyCertificateChain()`: comprehensive chain check (signature, issuer DN match, AKI/SKI, validity periods)
+  - `buildICAOMerkleTree()`: Keccak256 Merkle tree matching Registration2.sol's `processProof(keccak256(publicKey))`
+  - `computeCertificateKey()`: Poseidon hash matching Bytes2Poseidon.hashPacked() / CRSADispatcher.getCertificateKey()
+  - `computeCertificatesRoot()`: stub SMT root matching per-passport circuit's slaveMerkleRoot
+  - `loadAllCSCACerts()` / `filterCSCAByCountry()`: ML parsing utilities
+  - `hasUSCSCA()` / `loadUSCSCA()`: fixture loading helpers
+- Expanded `PassportIntegration.test.ts` from 24 to 39 tests (4 new blocks):
+  - Block 1b — Certificate Chain (6): DS→CSCA signature, issuer match, AKI/SKI linkage, validity, full check, wrong CSCA rejection
+  - Block 1c — ICAO Master Tree (4): tree construction, proof generation, different roots for different sets, non-member rejection
+  - Block 1d — Certificate SMT (4): certificateKey computation, match with circuit slaveMerkleRoot, match with ZK proof output [4], different keys for different certs
+  - Full chain test (1): ICAO → CSCA → DS → SOD → DG1 → certificatesRoot end-to-end
+- Trust chain coverage: ICAO ML ✅ → CSCA ✅ → DS cert ✅ → SOD ✅ → DG1 ✅ → ZK proof ✅ → on-chain ✅
+- All 39 integration tests pass; all 28 existing BioPassportVoting tests pass
+- Commit: `449faef`
+
 ### Test Quality Rewrite (fix/comprehensive-tests)
 - Rewrote BioPassportVoting.test.ts per TESTING_GUIDE.md (Moloch testing philosophy)
 - 28 tests: DRY helpers, verification functions, full require coverage
