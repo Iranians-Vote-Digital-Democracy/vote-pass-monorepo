@@ -1,8 +1,9 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
+import * as fs from "fs";
+import * as path from "path";
 
 import { time } from "@nomicfoundation/hardhat-network-helpers";
-import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 
 import {
   Reverter,
@@ -43,6 +44,113 @@ import {
 } from "@/test/helpers";
 
 import { BioPassportVoting, ProposalsState } from "@ethers-v6";
+
+// ============================================================================
+// Shared Test Helpers (DRY — used across multiple describe blocks)
+// ============================================================================
+
+/** Load the test CA fixture (fake CSCA for negative tests). */
+function loadTestCaPem(): string {
+  return fs.readFileSync(
+    path.join(__dirname, "../fixtures/test_ca.pem"),
+    "utf-8",
+  );
+}
+
+/** Encode 3-letter country code to uint256 citizenship value. */
+function citizenshipCode(nationality: string): number {
+  return (
+    (nationality.charCodeAt(0) << 16) |
+    (nationality.charCodeAt(1) << 8) |
+    nationality.charCodeAt(2)
+  );
+}
+
+/** Encode voting config with optional citizenship whitelist. */
+function encodeVotingConfig(citizenshipWhitelist: number[] = []): string {
+  const coder = ethers.AbiCoder.defaultAbiCoder();
+  return coder.encode(
+    ["tuple(uint256,uint256[],uint256,uint256,uint256,uint256,uint256,uint256)"],
+    [
+      [
+        0x00, // selector
+        citizenshipWhitelist,
+        1721401330, // identityCreationTimestampUpperBound
+        1, // identityCounterUpperBound
+        0x00, // sex (any)
+        0x303030303030, // birthDateLowerbound (000000)
+        0x303630373139, // birthDateUpperbound
+        0x323430373139, // expirationDateLowerBound
+      ],
+    ],
+  );
+}
+
+/** Get the current EVM block timestamp as a hex-encoded date string. */
+async function getCurrentDate(): Promise<string> {
+  let res: string = "0x";
+  const date = new Date((await time.latest()) * 1000);
+
+  res += "3" + date.getUTCFullYear().toString()[2] + "3" + date.getUTCFullYear().toString()[3];
+  let month = (date.getUTCMonth() + 1).toString().padStart(2, "0");
+  res += "3" + month[0] + "3" + month[1];
+  let day = date.getUTCDate().toString().padStart(2, "0");
+  res += "3" + day[0] + "3" + day[1];
+
+  return res;
+}
+
+/** Deploy ProposalsState with ProposalSMT (shared across voting test blocks). */
+async function deployProposalsState(): Promise<ProposalsState> {
+  const Proxy = await ethers.getContractFactory("ERC1967Proxy");
+  const ProposalSMT = await ethers.getContractFactory("ProposalSMT", {
+    libraries: {
+      PoseidonUnit2L: await (await getPoseidon(2)).getAddress(),
+      PoseidonUnit3L: await (await getPoseidon(3)).getAddress(),
+    },
+  });
+  const ProposalsStateFactory = await ethers.getContractFactory("ProposalsState", {
+    libraries: {
+      PoseidonUnit3L: await (await getPoseidon(3)).getAddress(),
+    },
+  });
+
+  const proposalSMT = await ProposalSMT.deploy();
+  let proposalsState = await ProposalsStateFactory.deploy();
+
+  const proxy = await Proxy.deploy(await proposalsState.getAddress(), "0x");
+  proposalsState = proposalsState.attach(await proxy.getAddress()) as ProposalsState;
+
+  await proposalsState.__ProposalsState_init(await proposalSMT.getAddress(), 0n);
+  return proposalsState;
+}
+
+/** Deploy BioPassportVoting with mocks and wire to ProposalsState. */
+async function deployBioPassportVotingWithState(
+  proposalsState: ProposalsState,
+): Promise<BioPassportVoting> {
+  const Proxy = await ethers.getContractFactory("ERC1967Proxy");
+  const RegistrationSMTMock = await ethers.getContractFactory("RegistrationSMTMock");
+  const VerifierMock = await ethers.getContractFactory("VerifierMock");
+  const Voting = await ethers.getContractFactory("BioPassportVoting");
+
+  const registrationSMTMock = await RegistrationSMTMock.deploy();
+  const verifierMock = await VerifierMock.deploy();
+
+  let bioPassportVoting = await Voting.deploy();
+
+  const proxy = await Proxy.deploy(await bioPassportVoting.getAddress(), "0x");
+  bioPassportVoting = bioPassportVoting.attach(await proxy.getAddress()) as BioPassportVoting;
+
+  await bioPassportVoting.__BioPassportVoting_init(
+    await registrationSMTMock.getAddress(),
+    await proposalsState.getAddress(),
+    await verifierMock.getAddress(),
+  );
+
+  await proposalsState.addVoting("BioPassportVoting", await bioPassportVoting.getAddress());
+  return bioPassportVoting;
+}
 
 /**
  * Passport Integration Tests
@@ -141,60 +249,58 @@ describe("Passport Integration", function () {
   // =========================================================================
 
   describe("ICAO Master List Authenticity — CMS Signature Verification", () => {
+    let mlResult: ReturnType<typeof verifyICAOMLAuthenticity>;
+
     before(function () {
       if (!hasICAOMasterList()) {
         console.log("  Skipping: no ICAO Master List at test/fixtures/icao/.");
         this.skip();
       }
+      // Parse once — the ML file is 810KB, no need to re-parse per test
+      mlResult = verifyICAOMLAuthenticity(getICAOMasterListPath());
     });
 
     it("should verify the CMS signature on the ICAO Master List", function () {
-      const result = verifyICAOMLAuthenticity(getICAOMasterListPath());
-      expect(result.signatureValid).to.equal(
+      expect(mlResult.signatureValid).to.equal(
         true,
         "CMS signature should verify against the ICAO ML Signer certificate",
       );
     });
 
     it("should verify the ML Signer cert was signed by the UN CSCA", function () {
-      const result = verifyICAOMLAuthenticity(getICAOMasterListPath());
-      expect(result.signerCertValid).to.equal(
+      expect(mlResult.signerCertValid).to.equal(
         true,
         "ICAO ML Signer cert should be signed by the UN CSCA",
       );
     });
 
     it("should verify the UN CSCA is self-signed (trust anchor)", function () {
-      const result = verifyICAOMLAuthenticity(getICAOMasterListPath());
-      expect(result.unCSCASelfSigned).to.equal(
+      expect(mlResult.unCSCASelfSigned).to.equal(
         true,
         "UN CSCA should be self-signed as the root trust anchor",
       );
     });
 
     it("should verify both ML signing certificates are within validity period", function () {
-      const result = verifyICAOMLAuthenticity(getICAOMasterListPath());
-      expect(result.signerCertWithinValidity).to.equal(
+      expect(mlResult.signerCertWithinValidity).to.equal(
         true,
         "ICAO ML Signer cert should be within validity period",
       );
-      expect(result.unCSCAWithinValidity).to.equal(
+      expect(mlResult.unCSCAWithinValidity).to.equal(
         true,
         "UN CSCA should be within validity period",
       );
     });
 
     it("should confirm the ML Signer is issued by the United Nations", function () {
-      const result = verifyICAOMLAuthenticity(getICAOMasterListPath());
-      expect(result.signerSubject).to.include("United Nations");
-      expect(result.signerSubject).to.include("Master List Signers");
-      expect(result.signerIssuer).to.include("United Nations");
-      expect(result.signerIssuer).to.include("Certification Authorities");
+      expect(mlResult.signerSubject).to.include("United Nations");
+      expect(mlResult.signerSubject).to.include("Master List Signers");
+      expect(mlResult.signerIssuer).to.include("United Nations");
+      expect(mlResult.signerIssuer).to.include("Certification Authorities");
     });
 
     it("should contain the expected number of CSCA certificates", function () {
-      const result = verifyICAOMLAuthenticity(getICAOMasterListPath());
-      expect(result.cscaCount).to.equal(
+      expect(mlResult.cscaCount).to.equal(
         536,
         "December 2025 ML should contain 536 CSCA certificates",
       );
@@ -222,6 +328,7 @@ describe("Passport Integration", function () {
   describe("Certificate Chain — DS Cert → CSCA → ICAO", () => {
     let passportData: PassportData;
     let cscaPem: string;
+    let chainResult: ReturnType<typeof verifyCertificateChain>;
 
     before(function () {
       if (!hasPassportData()) {
@@ -234,26 +341,28 @@ describe("Passport Integration", function () {
       }
       passportData = loadPassportData();
       cscaPem = loadUSCSCA();
+      // Compute chain result once — pure function, no side effects
+      chainResult = verifyCertificateChain(passportData.docSigningCertPem, cscaPem);
     });
 
     it("should verify DS certificate was signed by the US CSCA", function () {
-      const valid = verifyDSCertSignedByCSCA(passportData.docSigningCertPem, cscaPem);
-      expect(valid).to.equal(true, "DS cert signature should verify against CSCA public key");
+      expect(chainResult.signatureValid).to.equal(
+        true,
+        "DS cert signature should verify against CSCA public key",
+      );
     });
 
     it("should verify DS cert issuer matches CSCA subject", function () {
-      const result = verifyCertificateChain(passportData.docSigningCertPem, cscaPem);
-      expect(result.issuerMatch).to.equal(
+      expect(chainResult.issuerMatch).to.equal(
         true,
         "DS cert issuer DN should match CSCA subject DN",
       );
     });
 
     it("should verify Authority/Subject Key Identifier linkage", function () {
-      const result = verifyCertificateChain(passportData.docSigningCertPem, cscaPem);
       // AKI/SKI may not be present on all certs; if present, they must match
-      if (result.akiSkiMatch !== null) {
-        expect(result.akiSkiMatch).to.equal(
+      if (chainResult.akiSkiMatch !== null) {
+        expect(chainResult.akiSkiMatch).to.equal(
           true,
           "DS cert AKI should match CSCA SKI",
         );
@@ -262,26 +371,19 @@ describe("Passport Integration", function () {
     });
 
     it("should verify both certificates are within validity period", function () {
-      const result = verifyCertificateChain(passportData.docSigningCertPem, cscaPem);
-      expect(result.dsCertValid).to.equal(true, "DS cert should be within validity period");
-      expect(result.cscaValid).to.equal(true, "CSCA cert should be within validity period");
+      expect(chainResult.dsCertValid).to.equal(true, "DS cert should be within validity period");
+      expect(chainResult.cscaValid).to.equal(true, "CSCA cert should be within validity period");
     });
 
     it("should pass all chain verification checks", function () {
-      const result = verifyCertificateChain(passportData.docSigningCertPem, cscaPem);
-      expect(result.signatureValid).to.equal(true);
-      expect(result.issuerMatch).to.equal(true);
-      expect(result.dsCertValid).to.equal(true);
-      expect(result.cscaValid).to.equal(true);
+      expect(chainResult.signatureValid).to.equal(true);
+      expect(chainResult.issuerMatch).to.equal(true);
+      expect(chainResult.dsCertValid).to.equal(true);
+      expect(chainResult.cscaValid).to.equal(true);
     });
 
     it("should reject DS cert against wrong CSCA", function () {
-      // Use the test_ca.pem fixture as a fake CSCA
-      const fakeCscaPem = require("fs").readFileSync(
-        require("path").join(__dirname, "../fixtures/test_ca.pem"),
-        "utf-8",
-      );
-      const valid = verifyDSCertSignedByCSCA(passportData.docSigningCertPem, fakeCscaPem);
+      const valid = verifyDSCertSignedByCSCA(passportData.docSigningCertPem, loadTestCaPem());
       expect(valid).to.equal(false, "DS cert should NOT verify against a fake CSCA");
     });
   });
@@ -310,11 +412,7 @@ describe("Passport Integration", function () {
 
     it("should produce valid Merkle proof for included CSCA", function () {
       // Build tree with multiple certs (US CSCA + test CA)
-      const testCaPem = require("fs").readFileSync(
-        require("path").join(__dirname, "../fixtures/test_ca.pem"),
-        "utf-8",
-      );
-      const tree = buildICAOMerkleTree([cscaPem, testCaPem]);
+      const tree = buildICAOMerkleTree([cscaPem, loadTestCaPem()]);
 
       const proof = tree.getProof(cscaPem);
       expect(proof.length).to.be.greaterThan(0, "Proof should have at least one sibling");
@@ -322,23 +420,14 @@ describe("Passport Integration", function () {
 
     it("should produce different roots for different CSCA sets", function () {
       const tree1 = buildICAOMerkleTree([cscaPem]);
-
-      const testCaPem = require("fs").readFileSync(
-        require("path").join(__dirname, "../fixtures/test_ca.pem"),
-        "utf-8",
-      );
-      const tree2 = buildICAOMerkleTree([cscaPem, testCaPem]);
+      const tree2 = buildICAOMerkleTree([cscaPem, loadTestCaPem()]);
 
       expect(tree1.root).to.not.equal(tree2.root, "Different CSCA sets should have different roots");
     });
 
     it("should reject CSCA not in ICAO tree", function () {
       // Build tree with only test_ca (not the real CSCA)
-      const testCaPem = require("fs").readFileSync(
-        require("path").join(__dirname, "../fixtures/test_ca.pem"),
-        "utf-8",
-      );
-      const tree = buildICAOMerkleTree([testCaPem]);
+      const tree = buildICAOMerkleTree([loadTestCaPem()]);
 
       // Try to get proof for US CSCA which is NOT in the tree
       const proof = tree.getProof(cscaPem);
@@ -417,11 +506,7 @@ describe("Passport Integration", function () {
       const realCertKey = computeCertificateKey(passportData.docSigningCertPem);
 
       // Use test_ca.pem as a different certificate
-      const testCaPem = require("fs").readFileSync(
-        require("path").join(__dirname, "../fixtures/test_ca.pem"),
-        "utf-8",
-      );
-      const testCertKey = computeCertificateKey(testCaPem);
+      const testCertKey = computeCertificateKey(loadTestCaPem());
 
       expect(realCertKey).to.not.equal(
         testCertKey,
@@ -778,95 +863,9 @@ describe("Passport Integration", function () {
   describe("Voting with Real Passport Data", () => {
     const reverter = new Reverter();
 
-    let OWNER: SignerWithAddress;
     let bioPassportVoting: BioPassportVoting;
     let proposalsState: ProposalsState;
     let passportData: PassportData;
-
-    /** Encode citizenship from 3-letter country code to uint256. */
-    function citizenshipCode(nationality: string): number {
-      return (
-        (nationality.charCodeAt(0) << 16) |
-        (nationality.charCodeAt(1) << 8) |
-        nationality.charCodeAt(2)
-      );
-    }
-
-    async function deployState() {
-      const Proxy = await ethers.getContractFactory("ERC1967Proxy");
-      const ProposalSMT = await ethers.getContractFactory("ProposalSMT", {
-        libraries: {
-          PoseidonUnit2L: await (await getPoseidon(2)).getAddress(),
-          PoseidonUnit3L: await (await getPoseidon(3)).getAddress(),
-        },
-      });
-      const ProposalsState = await ethers.getContractFactory("ProposalsState", {
-        libraries: {
-          PoseidonUnit3L: await (await getPoseidon(3)).getAddress(),
-        },
-      });
-
-      const proposalSMT = await ProposalSMT.deploy();
-      proposalsState = await ProposalsState.deploy();
-
-      let proxy = await Proxy.deploy(await proposalsState.getAddress(), "0x");
-      proposalsState = proposalsState.attach(await proxy.getAddress()) as ProposalsState;
-
-      await proposalsState.__ProposalsState_init(await proposalSMT.getAddress(), 0n);
-    }
-
-    async function deployBioPassportVoting() {
-      const Proxy = await ethers.getContractFactory("ERC1967Proxy");
-      const RegistrationSMTMock = await ethers.getContractFactory("RegistrationSMTMock");
-      const VerifierMock = await ethers.getContractFactory("VerifierMock");
-      const Voting = await ethers.getContractFactory("BioPassportVoting");
-
-      const registrationSMTMock = await RegistrationSMTMock.deploy();
-      const verifierMock = await VerifierMock.deploy();
-
-      bioPassportVoting = await Voting.deploy();
-
-      let proxy = await Proxy.deploy(await bioPassportVoting.getAddress(), "0x");
-      bioPassportVoting = bioPassportVoting.attach(await proxy.getAddress()) as BioPassportVoting;
-
-      await bioPassportVoting.__BioPassportVoting_init(
-        await registrationSMTMock.getAddress(),
-        await proposalsState.getAddress(),
-        await verifierMock.getAddress(),
-      );
-    }
-
-    function encodeVotingConfig(citizenshipWhitelist: number[] = []) {
-      const coder = ethers.AbiCoder.defaultAbiCoder();
-      return coder.encode(
-        ["tuple(uint256,uint256[],uint256,uint256,uint256,uint256,uint256,uint256)"],
-        [
-          [
-            0x00, // selector
-            citizenshipWhitelist,
-            1721401330, // identityCreationTimestampUpperBound
-            1, // identityCounterUpperBound
-            0x00, // sex (any)
-            0x303030303030, // birthDateLowerbound (000000)
-            0x303630373139, // birthDateUpperbound
-            0x323430373139, // expirationDateLowerBound
-          ],
-        ],
-      );
-    }
-
-    async function getCurrentDate() {
-      let res: string = "0x";
-      const date = new Date((await time.latest()) * 1000);
-
-      res += "3" + date.getUTCFullYear().toString()[2] + "3" + date.getUTCFullYear().toString()[3];
-      let month = (date.getUTCMonth() + 1).toString().padStart(2, "0");
-      res += "3" + month[0] + "3" + month[1];
-      let day = date.getUTCDate().toString().padStart(2, "0");
-      res += "3" + day[0] + "3" + day[1];
-
-      return res;
-    }
 
     before(async function () {
       if (!hasPassportData()) {
@@ -875,12 +874,9 @@ describe("Passport Integration", function () {
       }
 
       passportData = loadPassportData();
-      [OWNER] = await ethers.getSigners();
 
-      await deployState();
-      await deployBioPassportVoting();
-
-      await proposalsState.addVoting("BioPassportVoting", await bioPassportVoting.getAddress());
+      proposalsState = await deployProposalsState();
+      bioPassportVoting = await deployBioPassportVotingWithState(proposalsState);
 
       await reverter.snapshot();
     });
@@ -1004,94 +1000,9 @@ describe("Passport Integration", function () {
   describe("Full Stack Integration", () => {
     const reverter = new Reverter();
 
-    let OWNER: SignerWithAddress;
     let bioPassportVoting: BioPassportVoting;
     let proposalsState: ProposalsState;
     let passportData: PassportData;
-
-    function citizenshipCode(nationality: string): number {
-      return (
-        (nationality.charCodeAt(0) << 16) |
-        (nationality.charCodeAt(1) << 8) |
-        nationality.charCodeAt(2)
-      );
-    }
-
-    async function deployState() {
-      const Proxy = await ethers.getContractFactory("ERC1967Proxy");
-      const ProposalSMT = await ethers.getContractFactory("ProposalSMT", {
-        libraries: {
-          PoseidonUnit2L: await (await getPoseidon(2)).getAddress(),
-          PoseidonUnit3L: await (await getPoseidon(3)).getAddress(),
-        },
-      });
-      const ProposalsState = await ethers.getContractFactory("ProposalsState", {
-        libraries: {
-          PoseidonUnit3L: await (await getPoseidon(3)).getAddress(),
-        },
-      });
-
-      const proposalSMT = await ProposalSMT.deploy();
-      proposalsState = await ProposalsState.deploy();
-
-      let proxy = await Proxy.deploy(await proposalsState.getAddress(), "0x");
-      proposalsState = proposalsState.attach(await proxy.getAddress()) as ProposalsState;
-
-      await proposalsState.__ProposalsState_init(await proposalSMT.getAddress(), 0n);
-    }
-
-    async function deployBioPassportVoting() {
-      const Proxy = await ethers.getContractFactory("ERC1967Proxy");
-      const RegistrationSMTMock = await ethers.getContractFactory("RegistrationSMTMock");
-      const VerifierMock = await ethers.getContractFactory("VerifierMock");
-      const Voting = await ethers.getContractFactory("BioPassportVoting");
-
-      const registrationSMTMock = await RegistrationSMTMock.deploy();
-      const verifierMock = await VerifierMock.deploy();
-
-      bioPassportVoting = await Voting.deploy();
-
-      let proxy = await Proxy.deploy(await bioPassportVoting.getAddress(), "0x");
-      bioPassportVoting = bioPassportVoting.attach(await proxy.getAddress()) as BioPassportVoting;
-
-      await bioPassportVoting.__BioPassportVoting_init(
-        await registrationSMTMock.getAddress(),
-        await proposalsState.getAddress(),
-        await verifierMock.getAddress(),
-      );
-    }
-
-    function encodeVotingConfig(citizenshipWhitelist: number[] = []) {
-      const coder = ethers.AbiCoder.defaultAbiCoder();
-      return coder.encode(
-        ["tuple(uint256,uint256[],uint256,uint256,uint256,uint256,uint256,uint256)"],
-        [
-          [
-            0x00,
-            citizenshipWhitelist,
-            1721401330,
-            1,
-            0x00,
-            0x303030303030,
-            0x303630373139,
-            0x323430373139,
-          ],
-        ],
-      );
-    }
-
-    async function getCurrentDate() {
-      let res: string = "0x";
-      const date = new Date((await time.latest()) * 1000);
-
-      res += "3" + date.getUTCFullYear().toString()[2] + "3" + date.getUTCFullYear().toString()[3];
-      let month = (date.getUTCMonth() + 1).toString().padStart(2, "0");
-      res += "3" + month[0] + "3" + month[1];
-      let day = date.getUTCDate().toString().padStart(2, "0");
-      res += "3" + day[0] + "3" + day[1];
-
-      return res;
-    }
 
     before(async function () {
       if (!hasPassportData() || !hasRegistrationCircuit()) {
@@ -1100,12 +1011,9 @@ describe("Passport Integration", function () {
       }
 
       passportData = loadPassportData();
-      [OWNER] = await ethers.getSigners();
 
-      await deployState();
-      await deployBioPassportVoting();
-
-      await proposalsState.addVoting("BioPassportVoting", await bioPassportVoting.getAddress());
+      proposalsState = await deployProposalsState();
+      bioPassportVoting = await deployBioPassportVotingWithState(proposalsState);
 
       await reverter.snapshot();
     });
