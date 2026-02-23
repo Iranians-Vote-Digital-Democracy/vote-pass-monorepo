@@ -108,9 +108,9 @@ start_hardhat() {
         return
     fi
 
-    info "Starting Hardhat node..."
+    info "Starting Hardhat node (listening on 0.0.0.0:8545)..."
     cd "$CONTRACTS_DIR"
-    npx hardhat node > "$HARDHAT_LOG" 2>&1 &
+    npx hardhat node --hostname 0.0.0.0 > "$HARDHAT_LOG" 2>&1 &
     local pid=$!
     echo "$pid" > "$HARDHAT_PID_FILE"
 
