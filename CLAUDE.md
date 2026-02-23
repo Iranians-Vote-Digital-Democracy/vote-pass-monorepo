@@ -222,6 +222,13 @@ Reference: `docs/TESTING_GUIDE.md` (adapted from Moloch testing philosophy)
 - Use descriptive commit messages: `feat(scope): description` or `fix(scope): description`
 - Never leave work uncommitted at end of session
 
+### 6. Keep Sub-Repos in Sync
+The Android and iOS apps are separate git repos nested inside the main `vote-pass` repo:
+- `app-android-biometric-passport-zk/` — separate `.git`
+- `app-ios-biometric-passport-zk/` — separate `.git`
+
+When changes span both the platform (main repo) and an app (sub-repo), **commit both repos together**. Don't commit the main repo and leave the sub-repo uncommitted (or vice versa).
+
 ### Planning Integration
 When planning any implementation:
 1. Identify which feature branch to create
