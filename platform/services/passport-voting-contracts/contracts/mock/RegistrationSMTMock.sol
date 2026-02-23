@@ -15,4 +15,9 @@ contract RegistrationSMTMock is IPoseidonSMT {
 
         return true;
     }
+
+    /// @dev Returns a non-zero dummy root so Android app's SRegistration.getRoot() works
+    function getRoot() external pure returns (bytes32) {
+        return bytes32(uint256(1));
+    }
 }

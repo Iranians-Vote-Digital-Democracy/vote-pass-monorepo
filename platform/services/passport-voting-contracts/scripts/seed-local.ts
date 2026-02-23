@@ -65,11 +65,14 @@ async function main() {
   }
 
   // ── Proposal 1: Active, multi-option ──────────────────────────────────
+  // acceptedOptions is per-question-group, NOT per-display-option.
+  // For a single question with N choices: [(1 << N) - 1]
+  // Vote is [1 << selectedOptionIndex] (power of 2 within the bitmask).
   const proposal1Config = {
     startTimestamp: now - 60, // started 1 minute ago
     duration: 30 * 24 * 60 * 60, // 30 days
     multichoice: 0,
-    acceptedOptions: [3, 7, 15], // 3 options
+    acceptedOptions: [7], // 1 question group, 3 choices (7 = 0b111)
     description: makeDescription(
       "Community Budget Allocation",
       "Vote on how to allocate the community budget for the next quarter. Choose the area that should receive the most funding.",
@@ -84,7 +87,7 @@ async function main() {
     startTimestamp: now - 120, // started 2 minutes ago
     duration: 7 * 24 * 60 * 60, // 7 days
     multichoice: 0,
-    acceptedOptions: [3, 7], // 2 options
+    acceptedOptions: [3], // 1 question group, 2 choices (3 = 0b11)
     description: makeDescription(
       "Platform Governance Vote",
       "Should the platform implement mandatory two-factor authentication for all users?",
@@ -99,7 +102,7 @@ async function main() {
     startTimestamp: now - 90 * 24 * 60 * 60, // started 90 days ago
     duration: 30 * 24 * 60 * 60, // lasted 30 days (ended 60 days ago)
     multichoice: 0,
-    acceptedOptions: [3, 7], // 2 options
+    acceptedOptions: [3], // 1 question group, 2 choices (3 = 0b11)
     description: makeDescription(
       "Previous Quarter Review",
       "Do you approve the community treasury report for the previous quarter?",
