@@ -13,6 +13,9 @@ dependencyResolutionManagement {
         maven {
             url = uri("https://www.jitpack.io")
         }
+        maven {
+            url = uri("https://artifactory.appodeal.com/appodeal-public")
+        }
         jcenter()
 
     }
