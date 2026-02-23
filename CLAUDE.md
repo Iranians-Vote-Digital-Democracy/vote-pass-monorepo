@@ -141,11 +141,47 @@ yarn test                 # Run contract tests
 yarn hardhat compile      # Compile contracts
 ```
 
-### Local Services
+### Local E2E Testing
+```bash
+# 1. Start Hardhat + deploy contracts + seed proposals (no Docker needed for basic test)
+./platform/scripts/local-e2e.sh --skip-docker
+
+# 2. Build and install the local flavor on emulator
+cd app-android-biometric-passport-zk
+./gradlew installLocalDebug
+
+# 3. Stop everything when done
+./platform/scripts/local-e2e.sh --stop
+```
+
+**Build flavors**:
+- `localDebug` / `localRelease`: `IS_LOCAL_DEV=true`, connects to `10.0.2.2:8545` (Hardhat), mock proofs, auto-seeds fake identity, applicationId `org.iranUnchained.local`
+- `prodDebug` / `prodRelease`: `IS_LOCAL_DEV=false`, connects to production Rarimo endpoints, applicationId `org.iranUnchained`
+
+**What works without Docker**: App reads proposals directly from Hardhat via RPC. Polls screen shows 3 seeded proposals. Voting UI with dynamic options works.
+
+**What needs Docker**: Vote submission goes through the relayer gateway (port 8000). Without Docker services, the final submit step fails.
+
+**Emulator vs physical device**: `10.0.2.2` only works on Android emulator. For physical device, change `LocalDev.BLOCK_CHAIN_RPC_LINK` and `CORE_LINK` in `BaseConfig.kt` to your machine's LAN IP.
+
+**Contract addresses**: Deterministic on fresh Hardhat node. Hardcoded in `BaseConfig.kt` LocalDev and relayer configs. If they change, update both.
+
+### Local Services (Docker)
 ```bash
 cd platform
-docker-compose up         # Start local services
+docker-compose -f docker-compose-local.yaml up -d   # Start local services
 ```
+
+---
+
+## Pre-Work Checklist (CRITICAL)
+
+Before starting ANY task, planning, or implementation:
+1. **Read this entire CLAUDE.md first** — it contains project-specific instructions, common commands, and lessons learned that override default behavior.
+2. **Check the Local E2E Testing section** if the task involves running or testing the app.
+3. **Check done.md and tasks.md** for context on what's already been done.
+
+**When things go wrong**: If you hit an error or make a mistake during work, write the problem AND the solution to the **Lessons Learned** section at the bottom of this file as soon as you fix it. This prevents repeating the same mistakes across sessions.
 
 ---
 
@@ -217,3 +253,20 @@ This is a voting platform — **security is paramount**.
 - **Double-Vote Prevention**: Each passport can only vote once per proposal
 - **Private Key Storage**: Keys never leave device, stored in secure enclave
 - **Citizenship Filtering**: Per-proposal whitelist in voting contract
+
+---
+
+## Lessons Learned
+
+Record mistakes and their solutions here so they never happen again.
+
+- **Problem**: `npx hardhat migrate --network localhost` fails with "Transaction gas limit exceeds transaction gas cap of 16777216". The `@solarity/hardhat-migrate` plugin uses the full `blockGasLimit` as the tx gas, which exceeds Hardhat node's per-transaction RPC cap (16M). **Solution**: Set `gas: 12_000_000` on the `localhost` network in `hardhat.config.ts`. Do NOT increase `blockGasLimit` — that makes it worse.
+- **Problem**: Deployed contract addresses differ from what's hardcoded in `BaseConfig.kt` LocalDev and relayer configs. This happens because Hardhat deterministic addresses depend on deployment order and nonce. **Solution**: After deploying, check the addresses in `deployed/localhost.md` and update `BaseConfig.kt` LocalDev + relayer configs if they changed.
+- **Problem**: `seed-local.ts` fails with "Could not find deployed address for library PoseidonUnit3L" because `@solarity/hardhat-migrate` does NOT write artifact files to `deployed/localhost/`. **Solution**: Rewrote seed script to discover contracts by probing the chain instead of reading artifact files. Use `ethers.Contract` with ABI to attach to already-deployed proxies.
+- **Problem**: Contract discovery finds the implementation contract before the proxy (both respond to `lastProposalId()`), causing BioPassportVoting matching to fail because it compares against the proxy address. **Solution**: Collect ALL candidates, then match BioPassportVoting.proposalsState() against any of them.
+- **Problem**: `createProposal` reverts with "function selector was not recognized" because the human-readable ABI in seed script doesn't match the actual contract ABI. **Solution**: Use the compiled ABI from artifacts instead of hand-written ABI strings.
+- **Problem**: APK path assumed `localDebug/app-local-debug.apk` but actual path is `local/debug/app-local-debug.apk`. **Solution**: Correct path is `app/build/outputs/apk/local/debug/app-local-debug.apk` (flavor/buildType subdirectories).
+- **Problem**: Used `grep` and `head` via Bash to read log files instead of the Read tool. **Solution**: Always use the Read tool to read files. Never use `grep`, `head`, `tail`, `cat` via Bash for reading file contents.
+- **Problem**: Forgot to update this Lessons Learned section immediately after making a mistake. **Solution**: Updating CLAUDE.md with the mistake and solution must be the VERY FIRST action after recognizing an error — before any other work continues.
+- **Problem**: Hardhat node block timestamps start at `2004-01-01` (from `initialDate` in hardhat.config.ts), but seed script used `Date.now()` (real time ~2026). All proposals created with future timestamps → status=Waiting, nothing shows as "Active". **Solution**: Seed script must call `evm_setNextBlockTimestamp` + `evm_mine` to advance the Hardhat node's time to the present before creating proposals.
+- **Problem**: web3j 4.8.8 `DynamicStruct` decoder throws `UnsupportedOperationException: Array types must be wrapped in a TypeReference` when decoding `getProposalInfo()` return value. Root cause: nested structs (ProposalInfo contains ProposalConfig) with `DynamicArray` fields — web3j can't determine the array element type via reflection during struct decoding. **Solution**: Bypass web3j's struct decoder entirely. Make raw `eth_call` via `web3j.ethCall()`, get hex response, and manually parse the ABI-encoded fields using offset/length arithmetic. See `ProposalProvider.decodeProposalInfo()` for the implementation.

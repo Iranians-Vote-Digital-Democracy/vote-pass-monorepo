@@ -26,7 +26,18 @@ async function main() {
   console.log(`ProposalsState: ${proposalsStateAddress}`);
   console.log(`BioPassportVoting: ${bioPassportVotingAddress}`);
 
-  const now = Math.floor(Date.now() / 1000);
+  // Advance Hardhat node time to present (node starts at initialDate: "2004-01-01")
+  const realNow = Math.floor(Date.now() / 1000);
+  const latestBlockForTime = await ethers.provider.getBlock("latest");
+  const chainTime = latestBlockForTime!.timestamp;
+  if (chainTime < realNow - 3600) {
+    console.log(`\nAdvancing chain time from ${new Date(chainTime * 1000).toISOString()} to present...`);
+    await ethers.provider.send("evm_setNextBlockTimestamp", [realNow]);
+    await ethers.provider.send("evm_mine", []);
+    console.log(`  Chain time now: ${new Date(realNow * 1000).toISOString()}`);
+  }
+
+  const now = realNow;
 
   // Helper to encode voting config (ProposalRules struct)
   function encodeVotingConfig(citizenshipWhitelist: number[] = []) {
