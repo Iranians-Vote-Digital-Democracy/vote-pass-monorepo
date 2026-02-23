@@ -67,6 +67,25 @@
 - All 28 existing tests still pass
 - Commit: `229c2b8`
 
+### Full Passport Security Chain Testing (feature/passport-security-chain-tests)
+- Added `@peculiar/asn1-cms` dependency for CMS SignedData parsing
+- Created `sod-verifier.ts` helper:
+  - `parseSOD()`: parses ICAO EF.SOD (strips 0x77 wrapper, extracts CMS SignedData, LDSSecurityObject, certificates, signer info)
+  - `verifyDG1Hash()`: passive authentication — verifies DG1 hash matches SOD signed hash
+  - `verifySODSignature()`: verifies SOD CMS signature against document signing certificate (handles signedAttrs DER extraction, RSA/PSS/ECDSA)
+  - `extractCertificateInfo()`: extracts issuer country, validity period, serial number from PEM cert
+- Created `dg1-parser.ts` helper:
+  - `parseDG1Fields()`: parses TD3 MRZ fields (nationality, name, DOB, sex, expiry, document number)
+  - `tamperDG1Byte()` / `tamperDG1Field()`: modify DG1 for tamper detection testing
+- Expanded `PassportIntegration.test.ts` from 8 to 19 tests across 5 blocks:
+  - Block 1 — Passive Authentication (6 new): SOD parsing, DG1 hash verification, SOD signature verification, certificate info extraction, tamper detection via hash mismatch (byte + field)
+  - Block 2 — DG1 Data Integrity (3 tests, 1 new): MRZ field parsing against personDetails, tampered DG1 produces different dg1Hash, same DG1 with different keys produces same dg1Hash
+  - Block 3 — Registration Proof On-Chain (6 tests, 2 new): existing proofs + wrong signals rejection, cross-passport proof rejection
+  - Block 4 — Voting with Real Passport Data (3 existing): unchanged
+  - Block 5 — Full Stack Integration (1 existing): unchanged
+- All 19 integration tests pass; all 28 existing BioPassportVoting tests pass
+- Commit: `7c6821d`
+
 ### Test Quality Rewrite (fix/comprehensive-tests)
 - Rewrote BioPassportVoting.test.ts per TESTING_GUIDE.md (Moloch testing philosophy)
 - 28 tests: DRY helpers, verification functions, full require coverage
