@@ -116,3 +116,12 @@ fastlane/test_output
 # https://github.com/johnno1962/injectionforxcode
 
 iOSInjectionProject/
+
+# Sensitive data
+testdata/
+*.pem
+*.key
+*.p12
+*.der
+*.cer
+.env*
