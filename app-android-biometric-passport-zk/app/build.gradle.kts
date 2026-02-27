@@ -38,13 +38,16 @@ android {
         create("prod") {
             dimension = "environment"
             buildConfigField("boolean", "IS_LOCAL_DEV", "false")
+            buildConfigField("boolean", "USE_REAL_PROOFS", "true")
         }
         create("local") {
             dimension = "environment"
             applicationIdSuffix = ".local"
             buildConfigField("boolean", "IS_LOCAL_DEV", "true")
-            // Set to false to require real passport scan instead of auto-seeding mock identity
-            buildConfigField("boolean", "SEED_MOCK_IDENTITY", "false")
+            // Real ZK proofs on-device (set to false to use mock proofs with VerifierMock)
+            buildConfigField("boolean", "USE_REAL_PROOFS", "true")
+            // Auto-seed identity via Go library on first launch (set to false to require passport scan)
+            buildConfigField("boolean", "SEED_MOCK_IDENTITY", "true")
         }
     }
 

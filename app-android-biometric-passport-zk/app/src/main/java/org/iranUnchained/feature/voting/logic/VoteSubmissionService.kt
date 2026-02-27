@@ -172,11 +172,12 @@ class VoteSubmissionService(
     }
 
     private fun generateGroth16Proof(inputs: ProofInputs): org.iranUnchained.data.models.ZkProof {
-        if (BuildConfig.IS_LOCAL_DEV) {
-            Log.i(TAG, "Local dev: generating mock proof (VerifierMock accepts any proof)")
+        if (!BuildConfig.USE_REAL_PROOFS) {
+            Log.i(TAG, "Mock proofs enabled: generating random proof (VerifierMock accepts any proof)")
             return generateMockProof()
         }
 
+        Log.i(TAG, "Generating real Groth16 proof via vote_smt circuit...")
         val zkpUseCase = ZKPUseCase(context)
         val zkpTools = ZKPTools(context)
 

@@ -14,6 +14,12 @@
 - [x] **E2E vote successfully submitted on-chain** (tx 0xadbb4cd9, 487k gas)
 - [ ] Phase 7: Self-host identity-provider-service (follow-up)
 
+### Real ZK Proof Generation on Phone (feature/real-zk-proofs)
+- [ ] Modify LocalDevSeeder to use Go Identity library (proper key derivation)
+- [ ] Add USE_REAL_PROOFS build flag, enable SEED_MOCK_IDENTITY by default
+- [ ] Modify VoteSubmissionService to use real proofs when USE_REAL_PROOFS=true
+- [ ] Write unit tests
+
 ## Completed
 
 ### Platform Integration
