@@ -88,6 +88,8 @@
     <string name="submited_vote_header">Your vote has been submitted</string>
     <string name="submited_vote_description">Please wait for the end of the voting</string>
     <string name="enrolled">Enrolled</string>
+    <string name="see_results">See Results</string>
+    <string name="you_voted_for">You voted for: %1$s</string>
     <string name="button_no">No</string>
     <string name="privacyPolicy">Privacy Policy</string>
     <string name="formation_of_the_ballot">Formation of the signature</string>

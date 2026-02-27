@@ -1,6 +1,7 @@
 package org.iranUnchained.feature.voting
 
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.LinearLayout
 import androidx.core.content.ContextCompat
@@ -8,13 +9,16 @@ import androidx.databinding.DataBindingUtil
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.textview.MaterialTextView
+import io.reactivex.rxkotlin.addTo
 import org.iranUnchained.R
 import org.iranUnchained.base.view.BaseActivity
+import org.iranUnchained.data.datasource.api.ProposalProvider
 import org.iranUnchained.data.models.ProposalData
 import org.iranUnchained.data.models.VotingData
 import org.iranUnchained.databinding.ActivityVoteOptionsBinding
 import org.iranUnchained.logic.persistance.SecureSharedPrefs
 import org.iranUnchained.utils.Navigator
+import org.iranUnchained.utils.ObservableTransformers
 import org.iranUnchained.utils.resolveDays
 
 class VoteOptionsActivity : BaseActivity() {
@@ -62,11 +66,20 @@ class VoteOptionsActivity : BaseActivity() {
 
     private fun setupDynamicOptions(proposal: ProposalData, previousSelection: Int) {
         val options = proposal.options
-        val totalVotes = proposal.totalVotes().toFloat()
 
         if (previousSelection > -1) {
-            // Show results
-            showDynamicResults(proposal, previousSelection, totalVotes)
+            // Re-fetch voting results from chain to get up-to-date data
+            ProposalProvider.getVotingResults(apiProvider, proposal.proposalId)
+                .compose(ObservableTransformers.defaultSchedulersSingle())
+                .subscribe({ freshResults ->
+                    val updatedProposal = proposal.copy(votingResults = freshResults)
+                    val totalVotes = updatedProposal.totalVotes().toFloat()
+                    showDynamicResults(updatedProposal, previousSelection, totalVotes)
+                }, { error ->
+                    Log.e("VoteOptions", "Failed to refresh results, using cached", error)
+                    val totalVotes = proposal.totalVotes().toFloat()
+                    showDynamicResults(proposal, previousSelection, totalVotes)
+                }).addTo(compositeDisposable)
             return
         }
 
@@ -120,8 +133,10 @@ class VoteOptionsActivity : BaseActivity() {
             val isSelected = index + 1 == selectedIndex
 
             // Calculate vote counts from actual results
-            val optionVotes = if (index < proposal.votingResults.size) {
-                proposal.votingResults[index].sum()
+            // votingResults is [questionGroup][bitmaskBit] — for single-question proposals,
+            // all options are in questionGroup 0: votingResults[0][optionIndex]
+            val optionVotes = if (proposal.votingResults.isNotEmpty() && index < proposal.votingResults[0].size) {
+                proposal.votingResults[0][index]
             } else 0L
             val percentage = if (totalVotesInt > 0) (optionVotes * 100 / totalVotesInt).toInt() else 0
 

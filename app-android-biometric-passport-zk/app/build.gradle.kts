@@ -45,7 +45,7 @@ android {
             applicationIdSuffix = ".local"
             buildConfigField("boolean", "IS_LOCAL_DEV", "true")
             // Real ZK proofs on-device (set to false to use mock proofs with VerifierMock)
-            buildConfigField("boolean", "USE_REAL_PROOFS", "true")
+            buildConfigField("boolean", "USE_REAL_PROOFS", "false")
             // Auto-seed identity via Go library on first launch (set to false to require passport scan)
             buildConfigField("boolean", "SEED_MOCK_IDENTITY", "true")
         }

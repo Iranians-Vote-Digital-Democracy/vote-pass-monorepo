@@ -45,6 +45,7 @@ class VoteSubmissionService(
             try {
                 // Step 0: Building proof inputs
                 emitter.onNext(VoteProgress(0))
+                Log.i(TAG, "Vote submission: selectedOptions=$selectedOptions (0-indexed)")
                 val proofInputs = buildProofInputs(proposalData, selectedOptions)
 
                 // Step 1: Generating ZK proof
@@ -141,6 +142,7 @@ class VoteSubmissionService(
 
         // Encode votes: single-element bitmask array [1 << selectedOptionIndex]
         val votes = CalldataEncoder.encodeVoteBitmasks(selectedOptions, proposalData.options.size)
+        Log.i(TAG, "Vote bitmask: selectedOptions=$selectedOptions → votes=$votes (binary: ${votes[0].toString(2)})")
 
         // Parse identity fields — needed for both circuit and contract calldata
         val nullifier = BigInteger(identityData.nullifierHex, 16)
@@ -304,8 +306,19 @@ class VoteSubmissionService(
             throw RuntimeException("Transaction failed: ${response.error.message}")
         }
 
-        Log.i(TAG, "Local dev: tx hash = ${response.transactionHash}")
-        return response.transactionHash
+        val txHash = response.transactionHash
+        Log.i(TAG, "Local dev: tx hash = $txHash")
+
+        // Post-vote verification: query chain for actual stored results
+        try {
+            val receipt = web3j.ethGetTransactionReceipt(txHash).send()
+            val gasUsed = receipt.transactionReceipt.orElse(null)?.gasUsed
+            Log.i(TAG, "Local dev: tx confirmed, gasUsed=$gasUsed")
+        } catch (e: Exception) {
+            Log.w(TAG, "Local dev: could not get receipt", e)
+        }
+
+        return txHash
     }
 
     private fun getIdentityData(): IdentityData? {

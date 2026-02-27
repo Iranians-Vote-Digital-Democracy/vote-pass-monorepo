@@ -118,6 +118,8 @@ class VotePageActivity : BaseActivity() {
         }
         if (hasVoted) {
             setVoted()
+            // Don't overwrite the "You voted for" status with "You can vote"
+            return
         }
 
         if (isCanPromote) {
@@ -217,12 +219,33 @@ class VotePageActivity : BaseActivity() {
     }
 
     private fun setVoted() {
+        // Change button to "See Results"
         binding.mainButton.backgroundTintList =
-            ContextCompat.getColorStateList(this, R.color.unselected_button_color)
-        binding.mainButton.icon = getDrawable(R.drawable.ic_check)
-        binding.mainButton.text = resources.getText(R.string.enrolled)
+            ContextCompat.getColorStateList(this, R.color.primary_button_color)
+        binding.mainButton.icon = null
+        binding.mainButton.text = resources.getText(R.string.see_results)
         binding.mainButton.setTextColor(resources.getColor(R.color.black))
-        binding.mainButton.iconTint = ContextCompat.getColorStateList(this, R.color.black)
+
+        // Show what the user voted for instead of "You can vote"
+        val selectedOption = if (proposalData != null) {
+            SecureSharedPrefs.getVoteResult(this, proposalData!!.proposalId)
+        } else {
+            @Suppress("DEPRECATION")
+            SecureSharedPrefs.getVoteResult(this)
+        }
+        val optionName = if (proposalData != null && selectedOption > 0) {
+            val options = proposalData!!.options
+            if (selectedOption - 1 < options.size) options[selectedOption - 1].name else null
+        } else null
+
+        if (optionName != null) {
+            binding.aprovedView.backgroundTintList =
+                ContextCompat.getColorStateList(this, R.color.primary_button_color)
+            binding.aprovedView.icon = getDrawable(R.drawable.ic_check)
+            binding.aprovedView.iconTint = ContextCompat.getColorStateList(this, R.color.black)
+            binding.aprovedView.setTextColor(resources.getColor(R.color.black))
+            binding.aprovedView.text = getString(R.string.you_voted_for, optionName)
+        }
     }
 
     companion object {
