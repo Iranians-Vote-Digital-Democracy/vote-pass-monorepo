@@ -96,6 +96,7 @@ class VoteSubmissionService(
     }
 
     private data class ProofInputs(
+        // Contract calldata fields (needed by CalldataEncoder for on-chain submission)
         val registrationRoot: ByteArray,
         val currentDate: BigInteger,
         val proposalEventId: BigInteger,
@@ -103,6 +104,7 @@ class VoteSubmissionService(
         val citizenship: BigInteger,
         val identityCreationTimestamp: BigInteger,
         val votes: List<BigInteger>,
+        // Circuit inputs JSON (Semaphore-style signals for witness calculator)
         val inputsJson: String
     )
 
@@ -118,7 +120,7 @@ class VoteSubmissionService(
         val credentials = Credentials.create(ecKeyPair)
         val gasProvider = DefaultGasProvider()
 
-        // Get proposal event ID for nullifier computation
+        // Get proposal event ID for nullifier computation (needed for contract calldata)
         val proposalsState = ProposalsState.load(
             ActiveConfig.PROPOSAL_ADDRESS, web3j, credentials, gasProvider
         )
@@ -129,7 +131,7 @@ class VoteSubmissionService(
         // Get registration SMT root
         val registrationRoot = getRegistrationRoot(credentials)
 
-        // Encode current date as 6 ASCII bytes (YYMMDD)
+        // Encode current date as 6 ASCII bytes (YYMMDD) — needed for contract calldata
         val cal = Calendar.getInstance()
         val currentDate = CalldataEncoder.encodeDateAsAsciiBytes(
             cal.get(Calendar.YEAR),
@@ -140,23 +142,42 @@ class VoteSubmissionService(
         // Encode votes: single-element bitmask array [1 << selectedOptionIndex]
         val votes = CalldataEncoder.encodeVoteBitmasks(selectedOptions, proposalData.options.size)
 
-        // Parse identity fields
+        // Parse identity fields — needed for both circuit and contract calldata
         val nullifier = BigInteger(identityData.nullifierHex, 16)
+        val secret = BigInteger(identityData.secretKeyHex, 16)
         val citizenship = getCitizenshipCode()
         val identityCreationTimestamp = BigInteger(identityData.timeStamp)
 
-        // Build circuit inputs JSON
+        // Circuit-specific: nullifierHash = Poseidon(nullifier)
+        // Phase 1: use nullifier itself (VerifierMock doesn't validate)
+        val nullifierHash = nullifier
+
+        // Circuit-specific: SMT Merkle proof path
+        // Phase 1 (local dev): dummy path — VerifierMock accepts any proof
+        // Phase 2 (production): fetch real path from PoseidonSMT.getProof()
+        val pathElements: List<String>
+        val pathIndices: List<String>
+        if (BuildConfig.IS_LOCAL_DEV) {
+            pathElements = List(20) { "0" }
+            pathIndices = List(20) { "0" }
+        } else {
+            // TODO Phase 2: fetch real SMT proof via PoseidonSMT.getProof(identityKey)
+            throw UnsupportedOperationException(
+                "Production SMT proof fetching not yet implemented. Use local dev build."
+            )
+        }
+
+        // Build circuit inputs JSON (Semaphore-style signals)
         val rootHex = org.web3j.utils.Numeric.toHexStringNoPrefix(registrationRoot)
+        val voteValue = if (votes.isNotEmpty()) votes[0] else BigInteger.ZERO
         val inputsJson = VoteSMTInputsBuilder.buildJson(
-            registrationRootHex = rootHex,
-            currentDate = currentDate,
-            proposalEventId = proposalEventId,
-            nullifier = nullifier,
-            secretKey = BigInteger(identityData.secretKeyHex, 16),
-            citizenship = citizenship,
-            identityCreationTimestamp = identityCreationTimestamp,
-            votes = votes,
-            proposalId = BigInteger.valueOf(proposalData.proposalId)
+            root = rootHex,
+            nullifierHash = nullifierHash.toString(),
+            nullifier = nullifier.toString(),
+            vote = voteValue.toString(),
+            secret = secret.toString(),
+            pathElements = pathElements,
+            pathIndices = pathIndices
         )
 
         return ProofInputs(
