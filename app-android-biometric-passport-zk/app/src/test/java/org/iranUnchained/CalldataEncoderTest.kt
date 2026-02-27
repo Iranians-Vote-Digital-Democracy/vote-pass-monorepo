@@ -81,6 +81,66 @@ class CalldataEncoderTest {
     }
 
     @Test
+    fun `encodeUserPayload - exact ABI encoding matches Solidity abi_encode`() {
+        // Solidity: abi.encode(uint256 proposalId, uint256[] vote, UserData(nullifier, citizenship, timestamp))
+        // Tuple layout: (uint256, uint256[], (uint256, uint256, uint256))
+        //   word 0: proposalId (static)
+        //   word 1: offset to uint256[] (dynamic) = 0xa0 = 160 (head size: 32+32+96)
+        //   words 2-4: UserData inline (static struct: nullifier, citizenship, timestamp)
+        //   word 5: array length
+        //   word 6+: array elements
+        val payload = CalldataEncoder.encodeUserPayload(
+            proposalId = BigInteger.ONE,
+            votes = listOf(BigInteger.valueOf(4)), // bit 2 = Infrastructure
+            nullifier = BigInteger.valueOf(100),
+            citizenship = BigInteger.valueOf(200),
+            identityCreationTimestamp = BigInteger.valueOf(300)
+        )
+        val hex = payload.joinToString("") { "%02x".format(it) }
+
+        // 7 words = 224 bytes = 448 hex chars (no 0x20 prefix)
+        println("encodeUserPayload hex (${hex.length / 2} bytes, ${hex.length / 64} words):")
+        for (i in hex.indices step 64) {
+            val word = hex.substring(i, minOf(i + 64, hex.length))
+            println("  word ${i / 64}: $word")
+        }
+
+        // Verify: first word should be proposalId=1 (no 0x20 prefix from web3j)
+        val word0 = hex.substring(0, 64)
+        val firstValue = BigInteger(word0, 16)
+        println("First word value: $firstValue (expected: 1 for proposalId, 32 if web3j adds 0x20 prefix)")
+
+        assertEquals("First word should be proposalId=1 (no web3j prefix)",
+            BigInteger.ONE, firstValue)
+
+        // Verify: second word should be offset to dynamic array = 0xa0 = 160
+        val word1 = hex.substring(64, 128)
+        val offsetValue = BigInteger(word1, 16)
+        println("Second word (offset): $offsetValue (expected: 160)")
+        assertEquals("Offset to vote array should be 160", BigInteger.valueOf(160), offsetValue)
+
+        // Verify: words 2-4 should be UserData (nullifier=100, citizenship=200, timestamp=300)
+        val nullifierVal = BigInteger(hex.substring(128, 192), 16)
+        val citizenshipVal = BigInteger(hex.substring(192, 256), 16)
+        val timestampVal = BigInteger(hex.substring(256, 320), 16)
+        println("UserData: nullifier=$nullifierVal, citizenship=$citizenshipVal, timestamp=$timestampVal")
+        assertEquals("nullifier", BigInteger.valueOf(100), nullifierVal)
+        assertEquals("citizenship", BigInteger.valueOf(200), citizenshipVal)
+        assertEquals("timestamp", BigInteger.valueOf(300), timestampVal)
+
+        // Verify: word 5 should be array length = 1
+        val arrayLen = BigInteger(hex.substring(320, 384), 16)
+        assertEquals("array length", BigInteger.ONE, arrayLen)
+
+        // Verify: word 6 should be vote[0] = 4
+        val voteVal = BigInteger(hex.substring(384, 448), 16)
+        assertEquals("vote[0] should be 4 (bit 2)", BigInteger.valueOf(4), voteVal)
+
+        // Total: exactly 7 words = 224 bytes
+        assertEquals("Total payload should be 224 bytes", 224, payload.size)
+    }
+
+    @Test
     fun `encodeUserPayload - different inputs produce different outputs`() {
         val payload1 = CalldataEncoder.encodeUserPayload(
             proposalId = BigInteger.ONE,

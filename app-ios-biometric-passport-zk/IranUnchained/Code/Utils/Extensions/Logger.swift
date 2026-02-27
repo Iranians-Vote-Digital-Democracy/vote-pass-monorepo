@@ -16,4 +16,6 @@ extension Logger {
     static let qrScan = Logger(subsystem: subsystem, category: "QR Scan")
     
     static let main = Logger(subsystem: subsystem, category: "Main")
+
+    static let localDev = Logger(subsystem: subsystem, category: "LocalDev")
 }

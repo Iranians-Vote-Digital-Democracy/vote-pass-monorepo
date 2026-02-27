@@ -37,7 +37,9 @@ async function main() {
     console.log(`  Chain time now: ${new Date(realNow * 1000).toISOString()}`);
   }
 
-  const now = realNow;
+  // Use whichever is later: real time or chain time (chain may have been advanced manually)
+  const latestAfterAdvance = await ethers.provider.getBlock("latest");
+  const now = Math.max(realNow, latestAfterAdvance!.timestamp);
 
   // Helper to encode voting config (ProposalRules struct)
   function encodeVotingConfig(citizenshipWhitelist: number[] = []) {

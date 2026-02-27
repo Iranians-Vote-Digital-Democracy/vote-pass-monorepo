@@ -22,8 +22,8 @@ struct AppView: View {
         .environmentObject(viewModel)
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = true
-            
-            eraceOnFirstLaunch()
+
+            eraceOnFirstLaunchThenSeed()
             fetchRegistrationEntities()
         }
         .environment(\.layoutDirection, Locale.current.identifier.starts(with: "fa") ? .rightToLeft : .leftToRight)
@@ -39,23 +39,32 @@ struct AppView: View {
         }
     }
     
-    func eraceOnFirstLaunch() {
+    func eraceOnFirstLaunchThenSeed() {
         Task { @MainActor in
             do {
-                if SimpleStorage.getIsFirstLaunchEraced() {
-                    return
+                if !SimpleStorage.getIsFirstLaunchEraced() {
+                    viewModel.user = nil
+                    SimpleStorage.eraceActiveUserId()
+                    try SecureStorage.eraceAll()
+                    SimpleStorage.setIsFirstLaunchEraced(true)
                 }
-                
-                viewModel.user = nil
-                
-                SimpleStorage.eraceActiveUserId()
-                try SecureStorage.eraceAll()
-                
-                SimpleStorage.setIsFirstLaunchEraced(true)
             } catch {
                 print("eraceOnFirstLaunch error: \(error)")
             }
+
+            // Seed after erase completes so the seeded identity isn't wiped
+            seedLocalDevIfNeeded()
         }
+    }
+
+    func seedLocalDevIfNeeded() {
+        guard viewModel.config.isLocalDev else { return }
+
+        #if targetEnvironment(simulator)
+        LocalDevSeeder.seedIfNeeded(viewModel: viewModel, loadPassportJSON: true)
+        #else
+        LocalDevSeeder.seedIfNeeded(viewModel: viewModel)
+        #endif
     }
 }
 

@@ -104,6 +104,18 @@ object ProposalProvider {
     }
 
     /**
+     * Re-fetch voting results for a single proposal from chain.
+     * Used by VoteOptionsActivity to show up-to-date results after voting.
+     */
+    fun getVotingResults(apiProvider: ApiProvider, proposalId: Long): Single<List<List<Long>>> {
+        return Single.fromCallable {
+            val web3j = apiProvider.web3
+            val info = decodeProposalInfo(web3j, ActiveConfig.PROPOSAL_ADDRESS, BigInteger.valueOf(proposalId))
+            info.votingResults
+        }
+    }
+
+    /**
      * Manually decode getProposalInfo() ABI response to avoid web3j's broken
      * DynamicStruct decoder (fails with "Array types must be wrapped in a TypeReference"
      * on nested structs containing DynamicArray fields in web3j 4.8.8).

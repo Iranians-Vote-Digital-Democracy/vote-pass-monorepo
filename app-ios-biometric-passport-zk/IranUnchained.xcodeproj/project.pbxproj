@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AA00000B2C6F000100000001 /* PassportDataLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000A2C6F000100000001 /* PassportDataLoader.swift */; };
+		AA00000D2C6F000100000001 /* LocalDevSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000C2C6F000100000001 /* LocalDevSeeder.swift */; };
 		CE1C06D02BADC8FD00F154FF /* PassportScanProofView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1C06CF2BADC8FD00F154FF /* PassportScanProofView.swift */; };
 		CE3106662BD6BED4003F49D4 /* QKMRZScanner in Frameworks */ = {isa = PBXBuildFile; productRef = CE3106652BD6BED4003F49D4 /* QKMRZScanner */; };
 		CE32CF2B2BAC4D4600E507B6 /* PassportScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE32CF2A2BAC4D4600E507B6 /* PassportScanView.swift */; };
@@ -93,6 +95,9 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		AA00000A2C6F000100000001 /* PassportDataLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassportDataLoader.swift; sourceTree = "<group>"; };
+		AA00000C2C6F000100000001 /* LocalDevSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDevSeeder.swift; sourceTree = "<group>"; };
+		AA00000E2C6F000100000001 /* Local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Local.xcconfig; sourceTree = "<group>"; };
 		CE1C06CE2BADC7D300F154FF /* IranUnchained.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = IranUnchained.entitlements; sourceTree = "<group>"; };
 		CE1C06CF2BADC8FD00F154FF /* PassportScanProofView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassportScanProofView.swift; sourceTree = "<group>"; };
 		CE32CF2A2BAC4D4600E507B6 /* PassportScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassportScanView.swift; sourceTree = "<group>"; };
@@ -459,6 +464,8 @@
 				CE32CF362BAC57FB00E507B6 /* PassportUtils.swift */,
 				CE8A57AB2BB47FAD007F5244 /* ZKUtils.swift */,
 				CEF8C8142BE1643300F8E1A4 /* PassportRelayer.swift */,
+				AA00000A2C6F000100000001 /* PassportDataLoader.swift */,
+				AA00000C2C6F000100000001 /* LocalDevSeeder.swift */,
 			);
 			path = Utils;
 			sourceTree = "<group>";
@@ -496,6 +503,7 @@
 		CE9E82DF2BA8972800AAF885 /* Configs */ = {
 			isa = PBXGroup;
 			children = (
+				AA00000E2C6F000100000001 /* Local.xcconfig */,
 				CE9E82E02BA8974C00AAF885 /* Development.xcconfig */,
 				CE9E82E22BA8975F00AAF885 /* Production.xcconfig */,
 			);
@@ -681,6 +689,8 @@
 				CEF8C8152BE1643300F8E1A4 /* PassportRelayer.swift in Sources */,
 				CE778B612BA99CF600B26485 /* IntroView.swift in Sources */,
 				CE778B712BA9A74800B26485 /* Font.swift in Sources */,
+				AA00000B2C6F000100000001 /* PassportDataLoader.swift in Sources */,
+				AA00000D2C6F000100000001 /* LocalDevSeeder.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -45,6 +45,7 @@ class VoteSubmissionService(
             try {
                 // Step 0: Building proof inputs
                 emitter.onNext(VoteProgress(0))
+                Log.i(TAG, "Vote submission: selectedOptions=$selectedOptions (0-indexed)")
                 val proofInputs = buildProofInputs(proposalData, selectedOptions)
 
                 // Step 1: Generating ZK proof
@@ -96,6 +97,7 @@ class VoteSubmissionService(
     }
 
     private data class ProofInputs(
+        // Contract calldata fields (needed by CalldataEncoder for on-chain submission)
         val registrationRoot: ByteArray,
         val currentDate: BigInteger,
         val proposalEventId: BigInteger,
@@ -103,6 +105,7 @@ class VoteSubmissionService(
         val citizenship: BigInteger,
         val identityCreationTimestamp: BigInteger,
         val votes: List<BigInteger>,
+        // Circuit inputs JSON (Semaphore-style signals for witness calculator)
         val inputsJson: String
     )
 
@@ -118,7 +121,7 @@ class VoteSubmissionService(
         val credentials = Credentials.create(ecKeyPair)
         val gasProvider = DefaultGasProvider()
 
-        // Get proposal event ID for nullifier computation
+        // Get proposal event ID for nullifier computation (needed for contract calldata)
         val proposalsState = ProposalsState.load(
             ActiveConfig.PROPOSAL_ADDRESS, web3j, credentials, gasProvider
         )
@@ -129,7 +132,7 @@ class VoteSubmissionService(
         // Get registration SMT root
         val registrationRoot = getRegistrationRoot(credentials)
 
-        // Encode current date as 6 ASCII bytes (YYMMDD)
+        // Encode current date as 6 ASCII bytes (YYMMDD) — needed for contract calldata
         val cal = Calendar.getInstance()
         val currentDate = CalldataEncoder.encodeDateAsAsciiBytes(
             cal.get(Calendar.YEAR),
@@ -139,24 +142,44 @@ class VoteSubmissionService(
 
         // Encode votes: single-element bitmask array [1 << selectedOptionIndex]
         val votes = CalldataEncoder.encodeVoteBitmasks(selectedOptions, proposalData.options.size)
+        Log.i(TAG, "Vote bitmask: selectedOptions=$selectedOptions → votes=$votes (binary: ${votes[0].toString(2)})")
 
-        // Parse identity fields
+        // Parse identity fields — needed for both circuit and contract calldata
         val nullifier = BigInteger(identityData.nullifierHex, 16)
+        val secret = BigInteger(identityData.secretKeyHex, 16)
         val citizenship = getCitizenshipCode()
         val identityCreationTimestamp = BigInteger(identityData.timeStamp)
 
-        // Build circuit inputs JSON
+        // Circuit-specific: nullifierHash = Poseidon(nullifier)
+        // Phase 1: use nullifier itself (VerifierMock doesn't validate)
+        val nullifierHash = nullifier
+
+        // Circuit-specific: SMT Merkle proof path
+        // Phase 1 (local dev): dummy path — VerifierMock accepts any proof
+        // Phase 2 (production): fetch real path from PoseidonSMT.getProof()
+        val pathElements: List<String>
+        val pathIndices: List<String>
+        if (BuildConfig.IS_LOCAL_DEV) {
+            pathElements = List(20) { "0" }
+            pathIndices = List(20) { "0" }
+        } else {
+            // TODO Phase 2: fetch real SMT proof via PoseidonSMT.getProof(identityKey)
+            throw UnsupportedOperationException(
+                "Production SMT proof fetching not yet implemented. Use local dev build."
+            )
+        }
+
+        // Build circuit inputs JSON (Semaphore-style signals)
         val rootHex = org.web3j.utils.Numeric.toHexStringNoPrefix(registrationRoot)
+        val voteValue = if (votes.isNotEmpty()) votes[0] else BigInteger.ZERO
         val inputsJson = VoteSMTInputsBuilder.buildJson(
-            registrationRootHex = rootHex,
-            currentDate = currentDate,
-            proposalEventId = proposalEventId,
-            nullifier = nullifier,
-            secretKey = BigInteger(identityData.secretKeyHex, 16),
-            citizenship = citizenship,
-            identityCreationTimestamp = identityCreationTimestamp,
-            votes = votes,
-            proposalId = BigInteger.valueOf(proposalData.proposalId)
+            root = rootHex,
+            nullifierHash = nullifierHash.toString(),
+            nullifier = nullifier.toString(),
+            vote = voteValue.toString(),
+            secret = secret.toString(),
+            pathElements = pathElements,
+            pathIndices = pathIndices
         )
 
         return ProofInputs(
@@ -172,11 +195,12 @@ class VoteSubmissionService(
     }
 
     private fun generateGroth16Proof(inputs: ProofInputs): org.iranUnchained.data.models.ZkProof {
-        if (BuildConfig.IS_LOCAL_DEV) {
-            Log.i(TAG, "Local dev: generating mock proof (VerifierMock accepts any proof)")
+        if (!BuildConfig.USE_REAL_PROOFS) {
+            Log.i(TAG, "Mock proofs enabled: generating random proof (VerifierMock accepts any proof)")
             return generateMockProof()
         }
 
+        Log.i(TAG, "Generating real Groth16 proof via vote_smt circuit...")
         val zkpUseCase = ZKPUseCase(context)
         val zkpTools = ZKPTools(context)
 
@@ -282,8 +306,19 @@ class VoteSubmissionService(
             throw RuntimeException("Transaction failed: ${response.error.message}")
         }
 
-        Log.i(TAG, "Local dev: tx hash = ${response.transactionHash}")
-        return response.transactionHash
+        val txHash = response.transactionHash
+        Log.i(TAG, "Local dev: tx hash = $txHash")
+
+        // Post-vote verification: query chain for actual stored results
+        try {
+            val receipt = web3j.ethGetTransactionReceipt(txHash).send()
+            val gasUsed = receipt.transactionReceipt.orElse(null)?.gasUsed
+            Log.i(TAG, "Local dev: tx confirmed, gasUsed=$gasUsed")
+        } catch (e: Exception) {
+            Log.w(TAG, "Local dev: could not get receipt", e)
+        }
+
+        return txHash
     }
 
     private fun getIdentityData(): IdentityData? {

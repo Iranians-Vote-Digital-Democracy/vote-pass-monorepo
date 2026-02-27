@@ -12,7 +12,13 @@ class Config {
     let kyc: KYC
     let rarimo: Rarimo
     let freedom: Freedom
-    
+
+    /// True when running against local Hardhat node (localhost URLs).
+    var isLocalDev: Bool {
+        let host = rarimo.targetChainRPCURL.host
+        return host == "localhost" || host == "127.0.0.1"
+    }
+
     init() throws {
         self.general = try General()
         self.kyc = try KYC()

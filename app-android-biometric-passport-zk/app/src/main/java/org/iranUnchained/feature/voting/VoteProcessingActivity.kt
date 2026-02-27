@@ -78,8 +78,10 @@ class VoteProcessingActivity : BaseActivity() {
                 Log.e("VoteProcessing", "Vote submission failed", error)
 
                 val message = error.message ?: ""
-                if (message.contains("user already registered") || message.contains("already voted")) {
-                    handleAlreadyRegisteredError()
+                if (message.contains("user already registered") ||
+                    message.contains("already voted") ||
+                    message.contains("key already exists")) {
+                    handleAlreadyVotedError()
                 } else {
                     handleUnknownError()
                 }
@@ -109,7 +111,7 @@ class VoteProcessingActivity : BaseActivity() {
                 }
 
                 if ((it.message as String).contains("user already registered")) {
-                    handleAlreadyRegisteredError()
+                    handleAlreadyVotedError()
                     return@subscribe
                 }
 
@@ -130,7 +132,7 @@ class VoteProcessingActivity : BaseActivity() {
         view.typeface = typeface
     }
 
-    private fun handleAlreadyRegisteredError() {
+    private fun handleAlreadyVotedError() {
         MaterialAlertDialogBuilder(this).setTitle(getString(R.string.you_already_registered))
             .setPositiveButton(resources.getString(R.string.button_ok)) { _, _ ->
                 finish()
@@ -169,13 +171,8 @@ class VoteProcessingActivity : BaseActivity() {
         binding.separator.visibility = View.GONE
         binding.hint.visibility = View.GONE
         binding.viewPetition.visibility = View.VISIBLE
+        binding.viewPetition.text = resources.getString(R.string.see_results)
         isSigned = true
-
-        // Auto-navigate to results after a brief delay for the animation
-        binding.icon.postDelayed({
-            finish()
-            Navigator.from(this).openOptionVoting(votingData, proposalData)
-        }, 1500)
     }
 
     override fun onBackPressed() {
