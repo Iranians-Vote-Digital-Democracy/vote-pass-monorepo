@@ -7,13 +7,17 @@ import android.nfc.Tag
 import android.nfc.tech.IsoDep
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.databinding.DataBindingUtil
 import io.reactivex.rxkotlin.addTo
+import org.iranUnchained.BuildConfig
 import org.iranUnchained.R
 import org.iranUnchained.base.view.BaseActivity
 import org.iranUnchained.databinding.ActivityScanBinding
 import org.iranUnchained.feature.onBoarding.logic.NfcReaderTask
+import org.iranUnchained.utils.Navigator
 import org.iranUnchained.utils.ObservableTransformers
+import org.iranUnchained.utils.PassportDataLoader
 import org.iranUnchained.utils.nfc.model.EDocument
 import org.iranUnchained.utils.withPersianDigits
 import org.iranUnchained.view.util.ToastManager
@@ -23,6 +27,10 @@ import org.jmrtd.lds.icao.MRZInfo
 import java.util.Objects
 
 class ScanActivity : BaseActivity() {
+
+    companion object {
+        private const val TAG = "ScanActivity"
+    }
 
     private lateinit var binding: ActivityScanBinding
     private lateinit var adapter: NfcAdapter
@@ -38,6 +46,22 @@ class ScanActivity : BaseActivity() {
     private var isScanning: Boolean = false
     override fun onCreateAllowed(savedInstanceState: Bundle?) {
         binding = DataBindingUtil.setContentView(this, R.layout.activity_scan)
+
+        // Local dev: bypass NFC entirely — load passport JSON and go to ConfirmationActivity
+        if (BuildConfig.IS_LOCAL_DEV) {
+            val data = PassportDataLoader.loadFromDevice(this)
+            if (data != null) {
+                Log.i(TAG, "Local dev: bypassing NFC scan, injecting passport data from JSON")
+                val eDoc = PassportDataLoader.buildEDocument(data)
+                Navigator.from(this).openConfirmation(eDoc)
+                finish()
+                return
+            }
+            Log.w(TAG, "Local dev: no passport JSON found, falling through to NFC scan")
+            Toast.makeText(this,
+                "No passport-data.json found. Push to:\n${getExternalFilesDir(null)?.absolutePath}/passport-data.json",
+                Toast.LENGTH_LONG).show()
+        }
 
         initButton()
         adapter = NfcAdapter.getDefaultAdapter(this)

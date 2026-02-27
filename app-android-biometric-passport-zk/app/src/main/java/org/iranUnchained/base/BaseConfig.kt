@@ -58,33 +58,42 @@ object TestNet {
 }
 
 // Local Development (Docker platform services)
-// Use 10.0.2.2 for Android emulator -> host machine, or your machine's IP for device
+// HOST is auto-detected: 10.0.2.2 on emulator, 127.0.0.1 on physical device (via adb reverse)
 object LocalDev {
-    private const val HOST = "127.0.0.1"
-    private const val GATEWAY = "http://$HOST:8000"
+    private val HOST: String by lazy {
+        if (isEmulator()) "10.0.2.2" else "127.0.0.1"
+    }
+    private val GATEWAY: String by lazy { "http://$HOST:8000" }
 
-    const val CREATE_IDENTITY_LINK =
+    private fun isEmulator(): Boolean {
+        return android.os.Build.FINGERPRINT.contains("generic") ||
+                android.os.Build.PRODUCT.contains("sdk") ||
+                android.os.Build.MODEL.contains("Emulator") ||
+                android.os.Build.MODEL.contains("Android SDK")
+    }
+
+    val CREATE_IDENTITY_LINK: String get() =
         "$GATEWAY/integrations/identity-provider-service/v1/create-identity"
-    const val GIST_DATA_LINK =
+    val GIST_DATA_LINK: String get() =
         "$GATEWAY/integrations/identity-provider-service/v1/gist-data"
-    const val CLAIM_OFFER_LINK_V2 = "http://$HOST:3002/v1/offer/{claim_id}"
+    val CLAIM_OFFER_LINK_V2: String get() = "http://$HOST:3002/v1/offer/{claim_id}"
 
-    const val SEND_REGISTRATION_LINK =
+    val SEND_REGISTRATION_LINK: String get() =
         "$GATEWAY/integrations/registration-relayer/v1/register"
-    const val VOTE_LINK =
+    val VOTE_LINK: String get() =
         "$GATEWAY/integrations/proof-verification-relayer/v2/vote"
-    const val PROPOSALS_LINK =
+    val PROPOSALS_LINK: String get() =
         "$GATEWAY/integrations/proof-verification-relayer/v2/proposals"
-    const val AUTH_LINK =
+    val AUTH_LINK: String get() =
         "$GATEWAY/integrations/decentralized-auth-svc/v1/authorize"
 
-    const val CORE_LINK = "http://$HOST:8545"
+    val CORE_LINK: String get() = "http://$HOST:8545"
 
     // Contracts deployed on local Hardhat (update after deploy if addresses change)
     const val REGISTRATION_ADDRESS = "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6"
     const val PROPOSAL_ADDRESS = "0x0165878A594ca255338adfa4d48449f69242Eb8F"
 
-    const val BLOCK_CHAIN_RPC_LINK = "http://$HOST:8545"
+    val BLOCK_CHAIN_RPC_LINK: String get() = "http://$HOST:8545"
 
     const val REGISTRATION_TYPE = "Simple Registration"
 
