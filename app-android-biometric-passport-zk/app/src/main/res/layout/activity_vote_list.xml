@@ -112,12 +112,25 @@
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:layout_marginTop="24dp"
-            app:layout_constraintBottom_toTopOf="@+id/scan_export_button"
+            app:layout_constraintBottom_toTopOf="@+id/load_passport_button"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             android:layout_marginHorizontal="24dp"
             app:layout_constraintTop_toBottomOf="@+id/linearLayout"
             tools:listitem="@layout/layout_card_voting" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/load_passport_button"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Load Passport JSON"
+            android:layout_marginStart="24dp"
+            android:layout_marginEnd="24dp"
+            android:visibility="gone"
+            app:layout_constraintBottom_toTopOf="@+id/scan_export_button"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/scan_export_button"
