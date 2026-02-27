@@ -226,3 +226,12 @@ Three critical bugs discovered during end-to-end vote testing on Android emulato
 **End-to-end vote successfully recorded on-chain** — tx `0xadbb4cd9...` (487,601 gas)
 - Android repo commit: `0b4a60a`
 - Parent repo commit: `21f961a`
+
+### Real ZK Proof Generation on Phone (feature/real-zk-proofs)
+- LocalDevSeeder now uses `Identity.newIdentity(NoOpStateProvider())` from Go library instead of `SecureRandom` bytes — produces cryptographically derived secretKey/nullifier valid for real circuit witness computation
+- Added `USE_REAL_PROOFS` BuildConfig flag (separate from `IS_LOCAL_DEV`) — allows real proof generation while keeping other local dev behavior (direct-to-chain submission, local endpoints)
+- VoteSubmissionService routes to real Groth16 prover (vote_smt circuit via rapidsnark) when `USE_REAL_PROOFS=true`, mock proofs only when `false`
+- Flipped `SEED_MOCK_IDENTITY` default to `true` for local flavor — Go Identity library generates valid keys, auto-seeding is safe
+- NoOpStateProvider implements `identity.StateProvider` with only `localPrinter()` active; all other methods throw `UnsupportedOperationException` (not called during key generation)
+- Build compiles, 84/85 existing JVM tests pass (1 pre-existing failure in VoteEligibilityTest unrelated to changes)
+- Commit: `6429050`

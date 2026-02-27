@@ -15,10 +15,10 @@
 - [ ] Phase 7: Self-host identity-provider-service (follow-up)
 
 ### Real ZK Proof Generation on Phone (feature/real-zk-proofs)
-- [ ] Modify LocalDevSeeder to use Go Identity library (proper key derivation)
-- [ ] Add USE_REAL_PROOFS build flag, enable SEED_MOCK_IDENTITY by default
-- [ ] Modify VoteSubmissionService to use real proofs when USE_REAL_PROOFS=true
-- [ ] Write unit tests
+- [x] Modify LocalDevSeeder to use Go Identity library (proper key derivation) — `6429050`
+- [x] Add USE_REAL_PROOFS build flag, enable SEED_MOCK_IDENTITY by default — `6429050`
+- [x] Modify VoteSubmissionService to use real proofs when USE_REAL_PROOFS=true — `6429050`
+- [x] JVM tests: no new pure functions to test; 84/85 existing tests pass (1 pre-existing failure)
 
 ## Completed
 
