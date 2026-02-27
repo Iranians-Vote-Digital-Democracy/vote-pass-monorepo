@@ -290,3 +290,37 @@ Three critical bugs discovered during end-to-end vote testing on Android emulato
 
 **Seed Script Fix**
 - `seed-local.ts` now uses `Math.max(realNow, chainTime)` to handle Hardhat time being ahead of real time
+
+### iOS Voting Feature Parity (feature/ios-voting-feature)
+
+**Phase 1: Config + Models + Storage**
+- Added `PROPOSALS_STATE_ADDRESS` and `REGISTRATION_CONTRACT_ADDRESS` to Local/Development/Production xcconfig files + Info.plist
+- Added `proposalsStateAddress` and `registrationContractAddress` to `Config.Freedom`
+- Created `ProposalData.swift` model with ProposalStatus enum, ProposalOption, ProposalParser (JSON metadata extraction, votingWhitelistData parsing)
+- Added `saveVoteResult()/getVoteResult()` to SimpleStorage for persistent vote tracking
+
+**Phase 2: Contract Interaction**
+- Created `RawRPCClient.swift` — lightweight JSON-RPC client using URLSession (ethCall, sendRawTransaction, sendTransaction)
+- Created `ProposalProvider.swift` — fetches proposals via raw eth_call + manual ABI hex parsing, same strategy as Android (bypasses web3.swift broken struct decoders). Includes parseProposalInfoHex() with word-offset arithmetic, getVotingResults(), getProposalEventId(), getRegistrationRoot()
+
+**Phase 3: Voting UI (SwiftUI)**
+- `ProposalListView.swift`: Active/Completed segmented picker, proposal cards with title/description/status/end date, "You voted for: X" in card footer
+- `ProposalDetailView.swift`: Header with status badge, description card, eligibility check (citizenship whitelist), "You voted for: X" + "See Results" for already-voted, "Participate" button for eligible
+- `VoteOptionsView.swift`: Single-select option buttons with checkmark + accent styling, results mode with per-option progress bars and percentages, re-fetches results from chain
+- `VoteProcessingView.swift`: 4-step progress (Building proof → Anonymizing → Sending → Finalizing), checkmark animation per step, "already voted" error detection and handling
+
+**Phase 4: Vote Submission Pipeline**
+- `CalldataEncoder.swift`: Manual ABI encoding matching Android (encodeVoteBitmasks, encodeDateAsAsciiBytes, encodeUserPayload, encodeExecuteCalldata with selector 0xe4ab0833)
+- `VoteSMTInputsBuilder.swift`: Semaphore-style circuit inputs JSON (root, nullifierHash, nullifier, vote, secret, pathElements[20], pathIndices[20])
+- `VoteSubmissionService.swift`: Full submission flow — buildProofInputs (SMT root, proposalEventId, date encoding, vote bitmask), mock proof for local dev, direct-to-chain via Hardhat account #0, relayer submission for production
+- `ZKProofPoints` struct with mock() factory for VerifierMock
+
+**Phase 5: Integration**
+- Replaced MainView's registrationsList with ProposalListView as primary content
+- Added `activeProposals/endedProposals` published state to AppView.ViewModel
+- Added `fetchProposals()` to ViewModel, called on app launch alongside fetchRegistrationEntities()
+
+**All Android UX fixes ported**: correct `votingResults[0][index]` indexing, chain re-fetch after voting, "You voted for: X" persistent display, double-vote "already voted" error handling
+
+**PENDING**: Build verification with Xcode (not installed at time of implementation)
+- Commits: `615e4ba`, `9d58ea4`

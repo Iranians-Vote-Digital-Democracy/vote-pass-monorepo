@@ -38,6 +38,11 @@
 - [x] Add Config.isLocalDev + simulator auto-seeding in AppView — `462b6c6`
 - [x] Add PassportDataLoaderTests.swift (7 tests) — `462b6c6`
 - [x] Update project.pbxproj (new files + Local.xcconfig ref) — `462b6c6`
+- [x] **Voting feature parity**: Complete voting UI + submission pipeline — `615e4ba`, `9d58ea4`
+  - ProposalData model, RawRPCClient, ProposalProvider (manual ABI hex parsing)
+  - ProposalListView, ProposalDetailView, VoteOptionsView, VoteProcessingView
+  - CalldataEncoder, VoteSMTInputsBuilder, VoteSubmissionService
+  - All Android UX fixes ported: votingResults[0][index], chain re-fetch, "You voted for: X", double-vote handling
 - [ ] **BUILD VERIFICATION**: Compile iOS app with Xcode (waiting for Xcode install)
 - [ ] Fix any compile errors from the port
 - [ ] Create Xcode test target for IranUnchainedTests (none exists yet)
