@@ -23,7 +23,7 @@ services:
     container_name: rarimo-postgres
     environment:
       POSTGRES_USER: rarimo
-      POSTGRES_PASSWORD: rarimo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rarimo}
       POSTGRES_DB: proof_verification
     ports:
       - "5432:5432"

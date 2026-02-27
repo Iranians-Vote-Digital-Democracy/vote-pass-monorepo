@@ -31,6 +31,9 @@ extracted_data/
 platform/services/passport-voting-contracts/test/fixtures/*.json
 platform/services/passport-voting-contracts/test/fixtures/*.hex
 
+# Real certificate with PII (contains real person's identity data — NEVER commit)
+platform/services/passport-voting-contracts/test/fixtures/resignedreal_leaf.der
+
 # ICAO Master List derived files (regeneratable from .ml source)
 platform/services/passport-voting-contracts/test/fixtures/icao/master_list_content.der
 
