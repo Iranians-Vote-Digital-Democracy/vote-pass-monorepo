@@ -235,3 +235,58 @@ Three critical bugs discovered during end-to-end vote testing on Android emulato
 - NoOpStateProvider implements `identity.StateProvider` with only `localPrinter()` active; all other methods throw `UnsupportedOperationException` (not called during key generation)
 - Build compiles, 84/85 existing JVM tests pass (1 pre-existing failure in VoteEligibilityTest unrelated to changes)
 - Commit: `6429050`
+
+### Android Passport JSON Loading (feature/real-zk-proofs)
+- Created `PassportDataLoader.kt`: loads `passport-data.json` from device external files dir, parses person details
+- Enhanced `LocalDevSeeder.kt`: reads real passport metadata (issuerAuthority, dateOfBirth) from JSON file when available, falls back to hardcoded "USA"
+- Auto-detects emulator via `Build.FINGERPRINT.contains("generic")` for runtime behavior
+- Commits: `801009a`, `4c42c06`, `312a6f4`, `98cb252`, `1f78680`
+
+### iOS Passport JSON Loading & Local Dev Seeding (feature/real-zk-proofs)
+- Ported Android's PassportDataLoader to `PassportDataLoader.swift`:
+  - Loads from Documents dir (via simctl/Finder) or app bundle
+  - `parseJson()` pure function for testability
+  - `load()` convenience (Documents first, then bundle fallback)
+- Created `LocalDevSeeder.swift`:
+  - Generates identity keys via Go Identity library (`IdentityNewBJJSecretKey` + `IdentityLoad`)
+  - Creates `User` with correct issuing authority from passport JSON
+  - Falls back to "USA" when no JSON available
+- Added `Config.isLocalDev` computed property (checks if RPC URL is localhost/127.0.0.1)
+- Modified `AppView.swift`:
+  - Auto-seeds on simulator when `isLocalDev` via `#if targetEnvironment(simulator)`
+  - Seed runs after first-launch erase (in same Task) to avoid race condition
+- Added `Logger.localDev` category
+- Updated `project.pbxproj` with new files + `Local.xcconfig` reference
+- Created `PassportDataLoaderTests.swift` (7 tests: valid JSON, missing fields, invalid, empty, empty object, different version, null personDetails)
+- **Note**: No Xcode test target exists yet; test file created but needs target added in Xcode
+- **Note**: No "Local" build scheme exists; only Development and Production. Need to create one pointing to Local.xcconfig
+- **PENDING**: Build verification with Xcode (not installed at time of implementation)
+- Commit: `462b6c6`
+
+### Voting UX & Correctness Fixes (feature/real-zk-proofs)
+
+**Vote Encoding/Display Bug Fix**
+- Root cause: `VoteOptionsActivity.showDynamicResults()` used `votingResults[index].sum()` treating outer array index (question group) as option index. For single-question proposals (`votingResults.size=1`), only index 0 ever showed votes.
+- Fix: Changed to `votingResults[0][index]` — reads per-option vote counts from the first (only) question group.
+- Added diagnostic logging in `VoteSubmissionService`: logs selectedOptions, vote bitmask (binary), userPayload hex, and tx receipt.
+- Added ABI encoding unit test: `encodeUserPayload - exact ABI encoding matches Solidity abi_encode` — verifies no web3j prefix, correct offsets, UserData struct layout, vote array encoding. All 11 CalldataEncoder tests pass.
+- E2E verified: Infrastructure (index 2) → bitmask 4 → `votingResults[0][2]=1` on chain → displays "Infrastructure - 100% (1 vote)" ✅
+
+**Vote Results Re-fetch**
+- Added `ProposalProvider.getVotingResults()` — fetches fresh votingResults from chain for a single proposal.
+- Modified `VoteOptionsActivity.setupDynamicOptions()` to call `getVotingResults()` when showing results mode (previousSelection > -1), replacing stale intent-cached data with fresh on-chain data.
+- Fallback: if re-fetch fails, uses cached data with error log.
+
+**Double-Vote Prevention**
+- Contract layer: `ProposalSMT.add(nullifier)` rejects duplicates with "key already exists" — verified in contract source.
+- App error handling: `VoteProcessingActivity` now catches "key already exists" (in addition to "user already registered" and "already voted") and shows "already voted" dialog.
+- App UI layer: `VotePageActivity` checks `SecureSharedPrefs.getVoteResult(proposalId)` — shows "You voted for: X" status and "See Results" button instead of "Participate".
+- Local dev note: `pm clear` creates new identity (new nullifier) → contract sees different voter. In production, passport-derived nullifier is deterministic.
+
+**Post-Vote UX**
+- VotePageActivity: "You voted for: X" status text, "See Results" button replacing "Participate"
+- VoteProcessingActivity: "See Results" text on success completion
+- Added `see_results` and `you_voted_for` string resources
+
+**Seed Script Fix**
+- `seed-local.ts` now uses `Math.max(realNow, chainTime)` to handle Hardhat time being ahead of real time
