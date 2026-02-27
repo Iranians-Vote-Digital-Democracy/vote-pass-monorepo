@@ -1,0 +1,102 @@
+package org.iranUnchained
+
+import org.iranUnchained.utils.CalldataEncoder
+import org.junit.Assert.*
+import org.junit.Test
+import java.math.BigInteger
+
+class CalldataEncoderTest {
+
+    @Test
+    fun `encodeVoteBitmasks - select option 0 of 2 produces bitmask 1`() {
+        val result = CalldataEncoder.encodeVoteBitmasks(listOf(0), 2)
+        assertEquals(1, result.size)
+        assertEquals(BigInteger.ONE, result[0]) // 2^0 = 1
+    }
+
+    @Test
+    fun `encodeVoteBitmasks - select option 1 of 3 produces bitmask 2`() {
+        val result = CalldataEncoder.encodeVoteBitmasks(listOf(1), 3)
+        assertEquals(1, result.size)
+        assertEquals(BigInteger.TWO, result[0]) // 2^1 = 2
+    }
+
+    @Test
+    fun `encodeVoteBitmasks - multi-select options 0 and 2 of 3 produces bitmask 5`() {
+        val result = CalldataEncoder.encodeVoteBitmasks(listOf(0, 2), 3)
+        assertEquals(1, result.size)
+        assertEquals(BigInteger.valueOf(5), result[0]) // 2^0 + 2^2 = 1 + 4 = 5
+    }
+
+    @Test
+    fun `encodeVoteBitmasks - empty selection produces bitmask 0`() {
+        val result = CalldataEncoder.encodeVoteBitmasks(emptyList(), 3)
+        assertEquals(1, result.size)
+        assertEquals(BigInteger.ZERO, result[0])
+    }
+
+    @Test
+    fun `encodeVoteBitmasks - zero total options produces bitmask 0`() {
+        val result = CalldataEncoder.encodeVoteBitmasks(emptyList(), 0)
+        assertEquals(1, result.size)
+        assertEquals(BigInteger.ZERO, result[0])
+    }
+
+    @Test
+    fun `encodeDateAsAsciiBytes - Feb 23 2026`() {
+        val result = CalldataEncoder.encodeDateAsAsciiBytes(2026, 2, 23)
+        // "260223" as ASCII: [0x32,0x36,0x30,0x32,0x32,0x33]
+        val expected = BigInteger("323630323233", 16)
+        assertEquals(expected, result)
+    }
+
+    @Test
+    fun `encodeDateAsAsciiBytes - Jan 1 2024`() {
+        val result = CalldataEncoder.encodeDateAsAsciiBytes(2024, 1, 1)
+        // "240101" as ASCII: [0x32,0x34,0x30,0x31,0x30,0x31]
+        val expected = BigInteger("323430313031", 16)
+        assertEquals(expected, result)
+    }
+
+    @Test
+    fun `encodeDateAsAsciiBytes - Dec 31 2099`() {
+        val result = CalldataEncoder.encodeDateAsAsciiBytes(2099, 12, 31)
+        // "991231" as ASCII: [0x39,0x39,0x31,0x32,0x33,0x31]
+        val expected = BigInteger("393931323331", 16)
+        assertEquals(expected, result)
+    }
+
+    @Test
+    fun `encodeUserPayload - produces non-empty result`() {
+        val payload = CalldataEncoder.encodeUserPayload(
+            proposalId = BigInteger.ONE,
+            votes = listOf(BigInteger.ONE),
+            nullifier = BigInteger.valueOf(12345),
+            citizenship = BigInteger.valueOf(4804178), // "IRN" as bytes
+            identityCreationTimestamp = BigInteger.valueOf(1700000000)
+        )
+        assertTrue("Payload should be non-empty", payload.isNotEmpty())
+        // ABI encoding produces 32-byte aligned data
+        assertEquals("Payload length should be 32-byte aligned", 0, payload.size % 32)
+    }
+
+    @Test
+    fun `encodeUserPayload - different inputs produce different outputs`() {
+        val payload1 = CalldataEncoder.encodeUserPayload(
+            proposalId = BigInteger.ONE,
+            votes = listOf(BigInteger.ONE),
+            nullifier = BigInteger.valueOf(111),
+            citizenship = BigInteger.valueOf(222),
+            identityCreationTimestamp = BigInteger.valueOf(333)
+        )
+        val payload2 = CalldataEncoder.encodeUserPayload(
+            proposalId = BigInteger.TWO,
+            votes = listOf(BigInteger.ONE),
+            nullifier = BigInteger.valueOf(111),
+            citizenship = BigInteger.valueOf(222),
+            identityCreationTimestamp = BigInteger.valueOf(333)
+        )
+        assertFalse("Different proposalIds should produce different payloads",
+            payload1.contentEquals(payload2))
+    }
+}
