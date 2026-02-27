@@ -42,8 +42,22 @@ object LocalDevSeeder {
 
         SecureSharedPrefs.saveIdentityData(context, identityData.toJson())
         SecureSharedPrefs.saveIsPassportScanned(context)
-        SecureSharedPrefs.saveDateOfBirth(context, "01.01.1990")
-        SecureSharedPrefs.saveIssuerAuthority(context, "USA")
+
+        // Try to load real passport metadata from device file
+        val passportData = PassportDataLoader.loadFromDevice(context)
+        val personDetails = passportData?.personDetails
+
+        if (personDetails != null) {
+            val issuer = personDetails.issuerAuthority ?: "USA"
+            val dob = personDetails.dateOfBirth ?: "01.01.1990"
+            SecureSharedPrefs.saveDateOfBirth(context, dob)
+            SecureSharedPrefs.saveIssuerAuthority(context, issuer)
+            Log.i(TAG, "Seeded with REAL passport data: issuer=$issuer, dob=$dob")
+        } else {
+            SecureSharedPrefs.saveDateOfBirth(context, "01.01.1990")
+            SecureSharedPrefs.saveIssuerAuthority(context, "USA")
+            Log.i(TAG, "Seeded with HARDCODED data: issuer=USA, dob=01.01.1990 (no passport JSON found)")
+        }
 
         Log.i(TAG, "Local dev identity seeded successfully (Go Identity library)")
         Log.d(TAG, "  nullifier: ${identity.nullifierHex}")
