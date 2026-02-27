@@ -1,0 +1,25 @@
+//
+//  Production.xcconfig
+//  IranUnchained
+//
+//  Created by Ivan Lele on 18.03.2024.
+//
+
+// Configuration settings file format documentation can be found at:
+// https://help.apple.com/xcode/#/dev745c5c974
+
+// MARK: General
+SLASH=/
+
+// MARK: Intro
+PRIVACY_POLICY_URL = "https:${SLASH}/www.iranians.vote/privacy-policy-verify-2024.html"
+TERMS_OF_USE_URL = "https:${SLASH}/www.iranians.vote/terms-of-use-verify-2024.html"
+PASSPORT_KYC_URL = "https:${SLASH}/kyc.iran.freedomtool.org"
+RARIMO_CORE_URL = "https:${SLASH}/rpc-api.mainnet.rarimo.com"
+TARGET_CHAIN_RPC_URL = "https:${SLASH}/rpcproxy.iran.freedomtool.org"
+ISSUER_URL = "https:${SLASH}/issuer.iran.freedomtool.org"
+REGISTRY_EVM_CONTRACT_ADDRESS = "0x90D6905362a9CBaF3A401a629a19057D23055Baf"
+PROPOSER_EVM_ADDRESS = "0xB1e1650A95e2baC47084D3E324766d3B16e5d0ef"
+REGISTRY_ENTRY_TYPE = "Simple Registration"
+PROOF_VERIFICATION_RELAYER_URL = "https:${SLASH}/proofverification.iran.freedomtool.org"
+VOTING_CREDENTIAL_TYPE = "urn:uuid:f2c8db83-7e1b-493d-a65e-9939d643e79d"

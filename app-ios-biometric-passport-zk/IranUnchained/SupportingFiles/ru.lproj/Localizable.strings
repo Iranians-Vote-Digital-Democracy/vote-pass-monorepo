@@ -1,0 +1,105 @@
+/* 
+  Localizable.strings
+  IranUnchained
+
+  Created by Ivan Lele on 18.03.2024.
+  
+*/
+
+// MARK: General
+"SelectedCountry" = "РУС";
+"Continue" = "Продолжить";
+
+// MARK: Intro
+"IntroSubTitle" = "Создание анонимных доказательств,";
+"IntroText1" = "Защищенное сканирование паспортов и QR-кодов";
+"IntroText2" = "Генерация Zero Knowledge proofs";
+"IntroText3" = "Проверенная кодовая база с открытым исходным кодом";
+"IntroButton" = "Продолжить";
+"IntroPrivacyPolicy" = "Политика конфиденциальности";
+"IntroTermsOfUse" = "Условия использования";
+
+// MARK: Main
+"MainTopHeader" = "Добро пожаловать";
+"MainProofTabHeader" = "Подтверждение права голоса";
+"MainProofTabEmpty" = "Доказательства отсутствуют. Отсканируйте паспорт";
+"MainProofTabNotEmptyMessage" = "Сгенерированные доказательства не содержат личных данных";
+"MainProofTabProofName" = "Доказательство голосующего";
+"MainProofTabProofData" = "гражданство,возраст...";
+"MainScanTabHeader" = "Сканировать";
+"MainScanTabScanDocumentTitle" = "Сканировать паспорт";
+"MainScanTabScanDocumentSubTitle" = "Получить данные из паспортов с поддержкой NFC";
+"MainScanTabScanQRTitle" = "Сканировать QR-код";
+"MainScanTabScanQRSubTitle" = "Извлечь данные из QR-кода";
+"MainFooter" = "Ваши персональные данные остаются на этом устройстве, не разглашаются и не передаются";
+
+// MARK: Scan Document
+"ScanDocumentTitle" = "Сканировать документ";
+"ScanDocumentSubTitle" = "Получить данные из паспортов с поддержкой NFC";
+"ScanDocumentHint" = "Во время проверки ваш паспорт сканируется, но все персональные данные остаются только на вашем устройстве.";
+"ScanDocumentStartButton" = "Начать";
+"ScanDocumentMRZTitle" = "Сканируйте первую страницу паспорта";
+"ScanDocumentMRZHint" = "Сканировать при хорошем освещении";
+"ScanDocumentNFCTitle" = "Сканирование NFC";
+"ScanDocumentNFCHint" = "Приложите документ к обратной стороне устройства";
+"ScanDocumentProofTitle" = "Сканирование завершено";
+"ScanDocumentData1" = "Номер документа";
+"ScanDocumentData2" = "Дата истечения срока";
+"ScanDocumentData3" = "Дата рождения";
+"ScanDocumentData4" = "Фамилия";
+"ScanDocumentData5" = "Имя";
+"ScanDocumentData6" = "Гражданство";
+"ScanDocumentProofButton" = "Сгенерировать анонимное доказательство";
+"ScanDocumentProcessingFooter1" = "Помните";
+"ScanDocumentProcessingFooter2" = "Ваши данные хранятся только на этом устройстве и никогда не передаются третьим лицам";
+"ScanDocumentProcessingGoingTitle" = "Пожалуйста, подождите";
+"ScanDocumentProcessingGoingSubTitle" = "Создание анонимной личности";
+"ScanDocumentProcessingFinishedTitle" = "Готово!";
+"ScanDocumentProcessingFinishedSubTitle" = "Вы будете перенаправлены";
+"ScanDocumentProcessingErrorTitle" = "Ошибка";
+"ScanDocumentProcessingErrorSubTitle" = "Произошло нечто неожиданное. Пожалуйста, повторите попытку позже.";
+
+// MARK: Scan QR
+"ScanQRTitle" = "Поделиться подтверждением личности";
+"ScanQRSubTitle" = "Никакие личные данные не покидают это устройство";
+"ScanQRCriteriasTitle" = "Каким типом криптографических доказательств вы делитесь:";
+"ScanQRCriteria1" = "Подтверждение гражданства";
+"ScanQRCriteria2" = "Подходящий возраст";
+"ScanQRCriteria3" = "Уникальность вашего голоса";
+"ScanQRMessage" = "Ваши данные остаются на этом устройстве и не разглашаются и не передаются другим.";
+"ScanQRButton" = "ПОДЕЛИТЬСЯ ДОКАЗАТЕЛЬСТВОМ";
+"ScanQRVotingRegistered" = "Вы зарегистрированы";
+"ScanQRVotingNitRegistered" = "Вы не зарегистрированы";
+
+// MARK: Support
+"Supported" = "Поддержать";
+"Days" = "дней";
+"Hours" = "часов";
+"LessThanHour" = "Меньше часа";
+"PeopleAlreadySigned" = "Количество участников:";
+"EndsIn" = "Окончание через";
+"Ended" = "Ended";
+"Ended" = "Завершено";
+"Heading" = "ЗАГОЛОВОК";
+"Description" = "Обращение:";
+"Sign" = "Подписать";
+"PeopleAndYouAlreadySigned" = "Количество участников:";
+"Signing" = "Подписание";
+"Country" = "RUS";
+"SignYes" = "За";
+"SignNo" = "Против";
+"Confirm" = "Подтвердить";
+
+// MARK: Loader
+"LoaderTitle" = "Пожалуйста, подождите";
+"LoaderSubTitle" = "Это может занять 5–10 минут";
+"LoaderText1" = "Ожидание состояния";
+"LoaderText2" = "Создание доказательства";
+"LoaderText3" = "Отправка доказательства";
+"LoaderText4" = "Завершение";
+
+"NFCError" = "Сканер NFC не смог прочитать чип биометрического паспорта. Старайтесь не перемещать устройство во время сканирования. Попробуйте еще раз.";
+"Error" = "Ошибка";
+
+"ValidationDocumentIsExpired" = "Срок действия документа истек";
+"ValidationUserIsTooYoung" = "Пользователь слишком молод";

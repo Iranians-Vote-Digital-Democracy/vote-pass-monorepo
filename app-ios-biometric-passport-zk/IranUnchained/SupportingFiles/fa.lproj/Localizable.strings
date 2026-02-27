@@ -1,0 +1,65 @@
+/*
+  Localizable.strings
+  IranUnchained
+
+  Created by Ivan Lele on 18.03.2024.
+  
+*/
+
+// MARK: Intro
+"IntroSubTitle" = "Fully privacy protected proof generation";
+"IntroButton" = "Continue";
+"IntroPrivacyPolicy" = "Privacy Policy";
+"IntroTermsOfUse" = "Terms of use";
+"IntroFooterText" = "If you choose to continue, you automatically agree to ours:";
+
+// MARK: Scan Document
+"ScanDocumentTitle" = "Scan ePassport";
+"ScanDocumentSubTitle" = "Read data from the NFC chip";
+"ScanDocumentHint" = "During verification, your passport is scanned, but all personal data remains only on your device and no one has access to it.";
+"ScanDocumentStartButton" = "Continue";
+"ScanDocumentMRZTitle" = "Capture your ePassport first page";
+"ScanDocumentMRZHint" = "Scan under a good light";
+"ScanDocumentNFCTitle" = "NFC Scanning";
+"ScanDocumentNFCHint" = "Hold your phone on the lower part of your ePassport";
+"ScanDocumentProofButton" = "Generate anonymous proof";
+"ScanDocumentProcessingGoingTitle" = "Please wait";
+"ScanDocumentProcessingGoingSubTitle" = "Creating anonymized identity proof";
+"ScanDocumentProcessingFinishedTitle" = "Done!";
+"ScanDocumentProcessingFinishedSubTitle" = "You will be redirected";
+"ScanDocumentProcessingErrorTitle" = "Error";
+"ScanDocumentProcessingErrorSubTitle" = "Something unexpected happened. Please try again later";
+
+// MARK: Support
+"Supported" = "Supported documents";
+"Days" = "days";
+"Hours" = "hours";
+"LessThanHour" = "Less than an hour";
+"PeopleAlreadySigned" = "Participants count:";
+"EndsIn" = "Ends in";
+"Ended" = "Ended";
+"Heading" = "HEADING";
+"Sign" = "Sign";
+"PeopleAndYouAlreadySigned" = "Participants count:";
+"Signing" = "Signing";
+
+"NFCError" = "The NFC reader was unable to read the ePassport chip. Try not to move the device while scanning. Try again.";
+"Error" = "Error";
+"ValidationDocumentIsExpired" = "Document is expired";
+"ValidationUserIsTooYoung" = "User is too young";
+
+// RegistrationEntry
+"RegistrationLoading" = "It can take from 5 to 10 minutes";
+"RegistrationEntryEndAt" = "Ends at";
+"Description" = "DESCRIPTION";
+"Question" = "QUESTION";
+
+// Registration entries statuses
+"Pending" = "Pending";
+"Voting" = "Voting";
+"Completed" = "Completed";
+"Confirm" = "Confirm";
+
+// RegistrationsList
+"RegistrationsListEmptyTitle" = "No polls yet";
+"RegistrationsListEmptyDescription" = "When you register for the voting, you will see them here";
