@@ -10,6 +10,7 @@ A secure digital voting platform using **passport NFC chips** (TD3 documents) fo
 
 - [Rarimo ZK Passport Documentation](https://docs.rarimo.com/zk-passport/) - Underlying ZK identity system
 - [Rarimo Audits](https://docs.rarimo.com/resources/audits) - Security audit reports
+- [ICAO Trust Chain Verification](docs/ICAO_TRUST_CHAIN.md) - How the ICAO PKD → CSCA → DS → passport chain is verified end-to-end
 
 ### Core Flow
 

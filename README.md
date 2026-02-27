@@ -76,6 +76,7 @@ vote-pass/
 │   └── docker-compose-local.yaml        # Local development
 │
 └── docs/
+    ├── ICAO_TRUST_CHAIN.md              # ICAO PKD → CSCA → DS → passport verification
     ├── LOCAL_TESTING.md                 # E2E setup guide
     ├── TESTING_GUIDE.md                 # Testing philosophy
     └── ENDPOINTS.md                     # Service endpoints reference
@@ -181,7 +182,7 @@ This is a voting platform — security is the top priority.
 - **Citizenship filtering** is enforced per-proposal on-chain
 - **No PII in this repository** — real passport data is gitignored and never committed
 
-Based on [Rarimo ZK Passport](https://docs.rarimo.com/zk-passport/). See [audit reports](https://docs.rarimo.com/resources/audits).
+Based on [Rarimo ZK Passport](https://docs.rarimo.com/zk-passport/). See [audit reports](https://docs.rarimo.com/resources/audits). For details on how the ICAO certificate chain (PKD → CSCA → DS → passport) is verified end-to-end, see [ICAO Trust Chain Verification](docs/ICAO_TRUST_CHAIN.md).
 
 ## Contributing
 
