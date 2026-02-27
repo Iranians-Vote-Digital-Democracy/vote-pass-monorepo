@@ -24,9 +24,7 @@ import org.iranUnchained.utils.Navigator
 import org.iranUnchained.utils.ObservableTransformers
 import org.iranUnchained.BuildConfig
 import org.iranUnchained.utils.LocalDevSeeder
-import org.iranUnchained.utils.PassportDataLoader
 import org.iranUnchained.utils.unSafeLazy
-import android.widget.Toast
 
 
 class VoteListActivity : BaseActivity() {
@@ -62,9 +60,8 @@ class VoteListActivity : BaseActivity() {
         val manager = LinearLayoutManager(this)
         binding.recyclerViewVote.layoutManager = manager
 
-        // Only show dev buttons in local dev builds
+        // Only show export button in local dev builds
         binding.scanExportButton.visibility = if (BuildConfig.IS_LOCAL_DEV) View.VISIBLE else View.GONE
-        binding.loadPassportButton.visibility = if (BuildConfig.IS_LOCAL_DEV) View.VISIBLE else View.GONE
 
         // Pre-seed mock identity for local dev (toggle SEED_MOCK_IDENTITY in build.gradle.kts)
         if (BuildConfig.IS_LOCAL_DEV && BuildConfig.SEED_MOCK_IDENTITY) {
@@ -122,7 +119,7 @@ class VoteListActivity : BaseActivity() {
 
     private fun initButtons() {
         clickHelper.addViews(
-            binding.settings, binding.title, binding.scanExportButton, binding.loadPassportButton
+            binding.settings, binding.title, binding.scanExportButton
         )
         clickHelper.setOnClickListener {
             when (it.id) {
@@ -134,9 +131,6 @@ class VoteListActivity : BaseActivity() {
                 binding.scanExportButton.id -> {
                     Log.i("PASSPORT_EXPORT", "Scan & Export button tapped, opening ScanActivity")
                     Navigator.from(this).openScan()
-                }
-                binding.loadPassportButton.id -> {
-                    loadPassportJsonAndOpenConfirmation()
                 }
             }
         }
@@ -170,20 +164,6 @@ class VoteListActivity : BaseActivity() {
 
     }
 
-
-    private fun loadPassportJsonAndOpenConfirmation() {
-        val data = PassportDataLoader.loadFromDevice(this)
-        if (data == null) {
-            val expectedPath = (getExternalFilesDir(null)?.absolutePath ?: "/sdcard/Android/data/${packageName}/files") +
-                    "/passport-data.json"
-            Toast.makeText(this, "No passport JSON found at:\n$expectedPath", Toast.LENGTH_LONG).show()
-            return
-        }
-        val eDocument = PassportDataLoader.buildEDocument(data)
-        Log.i("PASSPORT_LOAD", "Loaded passport JSON, opening ConfirmationActivity: " +
-                "name=${eDocument.personDetails?.name} ${eDocument.personDetails?.surname}")
-        Navigator.from(this).openConfirmation(eDocument)
-    }
 
     private fun clearAllData() {
         MaterialAlertDialogBuilder(this).setTitle(getString(R.string.delete_all_data_header))
