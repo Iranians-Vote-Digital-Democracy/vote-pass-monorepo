@@ -132,12 +132,16 @@ extension Config {
         let proposerEVMAddress: String
         let registryEntryType: String
         let proofVerificationRelayerURL: URL
-        
+        let proposalsStateAddress: String
+        let registrationContractAddress: String
+
         init() throws {
             self.registryEvmContractAddress = try readStringFromInfoPlist(key: "REGISTRY_EVM_CONTRACT_ADDRESS")
             self.proposerEVMAddress = try readStringFromInfoPlist(key: "PROPOSER_EVM_ADDRESS")
             self.registryEntryType = try readStringFromInfoPlist(key: "REGISTRY_ENTRY_TYPE")
             self.proofVerificationRelayerURL = try readURLFromInfoPlist(key: "PROOF_VERIFICATION_RELAYER_URL")
+            self.proposalsStateAddress = try readStringFromInfoPlist(key: "PROPOSALS_STATE_ADDRESS")
+            self.registrationContractAddress = try readStringFromInfoPlist(key: "REGISTRATION_CONTRACT_ADDRESS")
         }
     }
 }

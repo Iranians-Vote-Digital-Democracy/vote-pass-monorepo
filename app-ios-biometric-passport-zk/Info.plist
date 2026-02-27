@@ -33,6 +33,10 @@
 		<string>Vazirmatn-Bold.ttf</string>
 		<string>Vazirmatn-Regular.ttf</string>
 	</array>
+	<key>PROPOSALS_STATE_ADDRESS</key>
+	<string>${PROPOSALS_STATE_ADDRESS}</string>
+	<key>REGISTRATION_CONTRACT_ADDRESS</key>
+	<string>${REGISTRATION_CONTRACT_ADDRESS}</string>
 	<key>VOTING_CREDENTIAL_TYPE</key>
 	<string>${VOTING_CREDENTIAL_TYPE}</string>
 	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
