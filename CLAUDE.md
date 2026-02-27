@@ -230,12 +230,52 @@ The Android and iOS apps are separate git repos nested inside the main `vote-pas
 
 When changes span both the platform (main repo) and an app (sub-repo), **commit both repos together**. Don't commit the main repo and leave the sub-repo uncommitted (or vice versa).
 
-### Planning Integration
+### 7. Planning Integration
 When planning any implementation:
-1. Identify which feature branch to create
-2. List tests to write (following testing guide)
-3. Plan task tracking updates
-4. Include commit points in the plan
+1. Identify which repos are affected (main, iOS app, Android app)
+2. Identify which feature branch to create in each affected repo
+3. List tests to write (following testing guide)
+4. Plan task tracking updates
+5. Include commit points in the plan
+
+### 8. Git Worktrees for Parallel Work (CRITICAL)
+
+The repo has three **independent** git repos:
+- `vote-pass/` — main repo (contains `platform/`, `docs/`, `tasks.md`, etc.)
+- `vote-pass/app-android-biometric-passport-zk/` — separate `.git`
+- `vote-pass/app-ios-biometric-passport-zk/` — separate `.git`
+
+**Every Claude instance MUST work in a git worktree of the main repo.** Even app-only tasks typically touch main-repo files (`tasks.md`, `done.md`, `platform/` configs), so two instances will conflict on the main repo's working tree and branch state. You cannot know if another instance is active.
+
+**First thing you do** — before any other work, create a worktree:
+```bash
+# Always worktree the main repo:
+cd /Users/nh2/vote-pass
+git worktree add ../vote-pass-<purpose> -b <branch-name>
+cd ../vote-pass-<purpose>
+```
+
+**App repos**: The nested app repos (`app-android-*`, `app-ios-*`) are separate `.git` directories and are NOT included in the main-repo worktree. Since iOS and Android are separate repos, they don't conflict with each other. Work on them in their original locations:
+```bash
+# iOS work (from any main-repo worktree or original):
+cd /Users/nh2/vote-pass/app-ios-biometric-passport-zk
+
+# Android work:
+cd /Users/nh2/vote-pass/app-android-biometric-passport-zk
+```
+
+If two instances need the **same** app repo simultaneously, worktree that app repo too:
+```bash
+# iOS app worktree (rare — only if two instances both need iOS):
+cd /Users/nh2/vote-pass/app-ios-biometric-passport-zk
+git worktree add ../../ios-<purpose> -b <branch-name>
+
+# Android app worktree:
+cd /Users/nh2/vote-pass/app-android-biometric-passport-zk
+git worktree add ../../android-<purpose> -b <branch-name>
+```
+
+Do ALL main-repo work (edits, builds, tests, commits) inside the worktree directory. When done, merge the branch back to the target branch.
 
 ---
 
