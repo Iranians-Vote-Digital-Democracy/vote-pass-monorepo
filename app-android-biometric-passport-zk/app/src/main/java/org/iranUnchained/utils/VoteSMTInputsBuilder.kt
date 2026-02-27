@@ -1,37 +1,35 @@
 package org.iranUnchained.utils
 
-import java.math.BigInteger
-
 /**
- * Pure function to build the circuit inputs JSON for voteSMT proof generation.
- * Extracted from VoteSubmissionService for testability.
+ * Builds the circuit inputs JSON for voteSMT (Semaphore-style SMT voting) proof generation.
+ *
+ * The vote_smt circuit proves knowledge of a secret + Merkle path in the registration SMT.
+ * Identity fields (citizenship, timestamps) are committed into the SMT leaf during registration —
+ * the voting circuit only needs: root, nullifierHash, nullifier, vote, secret, pathElements, pathIndices.
  */
 object VoteSMTInputsBuilder {
 
     fun buildJson(
-        registrationRootHex: String,
-        currentDate: BigInteger,
-        proposalEventId: BigInteger,
-        nullifier: BigInteger,
-        secretKey: BigInteger,
-        citizenship: BigInteger,
-        identityCreationTimestamp: BigInteger,
-        votes: List<BigInteger>,
-        proposalId: BigInteger
+        root: String,
+        nullifierHash: String,
+        nullifier: String,
+        vote: String,
+        secret: String,
+        pathElements: List<String>,
+        pathIndices: List<String>
     ): String {
-        val votesStr = votes.joinToString(",") { "\"$it\"" }
+        val pathElementsStr = pathElements.joinToString(",") { "\"$it\"" }
+        val pathIndicesStr = pathIndices.joinToString(",") { "\"$it\"" }
 
         return """
         {
-            "root": "$registrationRootHex",
-            "currentDate": "${currentDate}",
-            "proposalEventId": "${proposalEventId}",
-            "nullifier": "${nullifier}",
-            "secretKey": "${secretKey}",
-            "citizenship": "${citizenship}",
-            "identityCreationTimestamp": "${identityCreationTimestamp}",
-            "vote": [${votesStr}],
-            "proposalId": "${proposalId}"
+            "root": "$root",
+            "nullifierHash": "$nullifierHash",
+            "nullifier": "$nullifier",
+            "vote": "$vote",
+            "secret": "$secret",
+            "pathElements": [$pathElementsStr],
+            "pathIndices": [$pathIndicesStr]
         }
         """.trimIndent()
     }
