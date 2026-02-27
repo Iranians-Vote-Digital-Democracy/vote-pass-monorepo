@@ -22,7 +22,10 @@ extension AppView {
         @Published var user: User? = nil
         
         @Published var registrationEntities: [RegistrationEntity] = []
-        
+
+        @Published var activeProposals: [ProposalData] = []
+        @Published var endedProposals: [ProposalData] = []
+
         init() {
             do {
                 config = try Config()
@@ -109,6 +112,18 @@ extension AppView {
             }
         }
         
+        func fetchProposals() async throws {
+            let result = try await ProposalProvider.getProposals(
+                rpcURL: config.rarimo.targetChainRPCURL,
+                contractAddress: config.freedom.proposalsStateAddress
+            )
+
+            await MainActor.run {
+                self.activeProposals = result.active
+                self.endedProposals = result.ended
+            }
+        }
+
         func isUserIdentityFinalized(
             _ stateInfo: StateInfo?
         ) async throws -> (Bool, StateInfo?) {

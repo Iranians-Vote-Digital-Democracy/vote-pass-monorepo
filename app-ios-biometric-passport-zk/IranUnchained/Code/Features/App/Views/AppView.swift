@@ -25,6 +25,7 @@ struct AppView: View {
 
             eraceOnFirstLaunchThenSeed()
             fetchRegistrationEntities()
+            fetchProposals()
         }
         .environment(\.layoutDirection, Locale.current.identifier.starts(with: "fa") ? .rightToLeft : .leftToRight)
     }
@@ -39,6 +40,16 @@ struct AppView: View {
         }
     }
     
+    func fetchProposals() {
+        Task { @MainActor in
+            do {
+                try await viewModel.fetchProposals()
+            } catch {
+                Logger.main.error("fetchProposals: \(error)")
+            }
+        }
+    }
+
     func eraceOnFirstLaunchThenSeed() {
         Task { @MainActor in
             do {
